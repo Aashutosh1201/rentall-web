@@ -1,24 +1,29 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 const products = [
   {
     name: "Mountain Bike",
-    image: "https://images.unsplash.com/photo-1605719123029-40f30f89a755?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
+    image:
+      "https://images.unsplash.com/photo-1605719123029-40f30f89a755?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
     price: "Rs. 700/day",
   },
   {
     name: "DSLR Camera",
-    image: "https://images.unsplash.com/photo-1549921296-3a4b1b7042da?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
+    image:
+      "https://images.unsplash.com/photo-1549921296-3a4b1b7042da?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
     price: "Rs. 1,200/day",
   },
   {
     name: "Projector",
-    image: "https://images.unsplash.com/photo-1618477388954-c632dbb9e2f6?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
+    image:
+      "https://images.unsplash.com/photo-1618477388954-c632dbb9e2f6?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
     price: "Rs. 900/day",
   },
   {
     name: "Camping Tent",
-    image: "https://images.unsplash.com/photo-1509988892867-8e8d76276de1?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
+    image:
+      "https://images.unsplash.com/photo-1509988892867-8e8d76276de1?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
     price: "Rs. 500/day",
   },
 ];
@@ -31,7 +36,7 @@ const FeaturedProducts = () => {
           Featured Products
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-10">
           {products.map((product, index) => (
             <div
               key={index}
@@ -50,6 +55,16 @@ const FeaturedProducts = () => {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* 👇 View All Products Button */}
+        <div className="text-center">
+          <Link
+            to="/products"
+            className="inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition"
+          >
+            View All Products
+          </Link>
         </div>
       </div>
     </section>

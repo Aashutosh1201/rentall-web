@@ -6,6 +6,7 @@ import PrivateRoute from "./components/PrivateRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingSpinner from "./components/LoadingSpinner";
 import CreateProduct from "./pages/CreateProduct";
+import ProductList from "./pages/ProductList";
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
@@ -28,7 +29,7 @@ const Profile = lazy(() => import("./pages/Dashboard/Profile"));
 const CategoriesPage = lazy(() => import("./components/Categories"));
 const HowItWorksPage = lazy(() => import("./components/HowItWorks"));
 
-// Public Layout Component
+// Layouts
 const PublicLayout = ({ children }) => (
   <>
     <Navbar />
@@ -37,13 +38,26 @@ const PublicLayout = ({ children }) => (
   </>
 );
 
-// Dashboard Layout Component
 const DashboardLayout = ({ children }) => (
   <PrivateRoute>
     <Dashboard>
       <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
     </Dashboard>
   </PrivateRoute>
+);
+
+// 🆕 Home component without ProductList
+const Home = () => (
+  <>
+    <Hero />
+    <HowItWorks />
+    <Categories />
+    <FeaturedProducts />
+    <WhyRentAll />
+    <CustomerReviews />
+    <FaqSection />
+    <CTASection />
+  </>
 );
 
 function App() {
@@ -56,14 +70,17 @@ function App() {
             path="/"
             element={
               <PublicLayout>
-                <Hero />
-                <HowItWorks />
-                <Categories />
-                <FeaturedProducts />
-                <WhyRentAll />
-                <CustomerReviews />
-                <FaqSection />
-                <CTASection />
+                <Home />
+              </PublicLayout>
+            }
+          />
+
+          {/* 🆕 New products page */}
+          <Route
+            path="/products"
+            element={
+              <PublicLayout>
+                <ProductList />
               </PublicLayout>
             }
           />
@@ -85,7 +102,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/create"
             element={
@@ -94,8 +110,6 @@ function App() {
               </PublicLayout>
             }
           />
-
-          {/* Auth pages */}
           <Route
             path="/login"
             element={
@@ -129,7 +143,7 @@ function App() {
             }
           />
 
-          {/* Protected Dashboard Routes */}
+          {/* Dashboard (Protected) */}
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<DashboardHome />} />
             <Route path="products" element={<MyProducts />} />
