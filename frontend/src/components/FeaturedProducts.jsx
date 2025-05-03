@@ -5,25 +5,25 @@ const products = [
   {
     name: "Mountain Bike",
     image:
-      "https://images.unsplash.com/photo-1605719123029-40f30f89a755?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
+      "https://upload.wikimedia.org/wikipedia/commons/9/96/Orbea_Occam_2020.jpg",
     price: "Rs. 700/day",
   },
   {
     name: "DSLR Camera",
     image:
-      "https://images.unsplash.com/photo-1549921296-3a4b1b7042da?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
+      "https://www.adorama.com/images/cms/4228ica5dm4k1_3%5B1%5D.jpg",
     price: "Rs. 1,200/day",
   },
   {
     name: "Projector",
     image:
-      "https://images.unsplash.com/photo-1618477388954-c632dbb9e2f6?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
+      "https://m.media-amazon.com/images/I/61pKMIi0AfL._AC_SL1500_.jpg",
     price: "Rs. 900/day",
   },
   {
     name: "Camping Tent",
     image:
-      "https://images.unsplash.com/photo-1509988892867-8e8d76276de1?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
+      "https://m.media-amazon.com/images/I/81DaQhY+yRL._AC_SL1500_.jpg",
     price: "Rs. 500/day",
   },
 ];

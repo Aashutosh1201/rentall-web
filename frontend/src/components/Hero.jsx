@@ -1,5 +1,5 @@
 import React from "react";
-
+import heroImage from './hero.jpeg';
 const Hero = () => {
   return (
     <section className="pt-24 pb-16 bg-gray-50">
@@ -21,7 +21,7 @@ const Hero = () => {
         {/* Image or Illustration */}
         <div className="w-full md:w-1/2">
           <img
-            src="https://source.unsplash.com/600x400/?rental,sharing,economy"
+            src={heroImage}
             alt="RentALL Hero"
             className="rounded-xl shadow-lg w-full"
           />
