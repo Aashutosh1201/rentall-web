@@ -1,4 +1,3 @@
-// ✅ App.jsx (updated routes)
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import Navbar from "./components/Navbar";
@@ -9,6 +8,7 @@ import LoadingSpinner from "./components/LoadingSpinner";
 import CreateProduct from "./pages/CreateProduct";
 import ProductList from "./pages/ProductList";
 import KYCInfo from "./pages/KYCInfo";
+import KYCForm from "./pages/KYCForm"; // ✅ Add this import
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
@@ -31,7 +31,6 @@ const Profile = lazy(() => import("./pages/Dashboard/Profile"));
 const CategoriesPage = lazy(() => import("./components/Categories"));
 const HowItWorksPage = lazy(() => import("./components/HowItWorks"));
 
-// Layouts
 const PublicLayout = ({ children }) => (
   <>
     <Navbar />
@@ -48,7 +47,6 @@ const DashboardLayout = ({ children }) => (
   </PrivateRoute>
 );
 
-// 🆕 Home component without ProductList
 const Home = () => (
   <>
     <Hero />
@@ -67,7 +65,7 @@ function App() {
     <Router>
       <ErrorBoundary>
         <Routes>
-          {/* Public landing page */}
+          {/* Public routes */}
           <Route
             path="/"
             element={
@@ -76,8 +74,6 @@ function App() {
               </PublicLayout>
             }
           />
-
-          {/* 🆕 New products page */}
           <Route
             path="/products"
             element={
@@ -86,8 +82,6 @@ function App() {
               </PublicLayout>
             }
           />
-
-          {/* Standalone pages */}
           <Route
             path="/categories"
             element={
@@ -137,6 +131,14 @@ function App() {
             }
           />
           <Route
+            path="/kyc-form"
+            element={ // ✅ Add the route
+              <PublicLayout>
+                <KYCForm />
+              </PublicLayout>
+            }
+          />
+          <Route
             path="/forgot-password"
             element={
               <PublicLayout>
@@ -153,7 +155,7 @@ function App() {
             }
           />
 
-          {/* Dashboard (Protected) */}
+          {/* Dashboard routes (protected) */}
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<DashboardHome />} />
             <Route path="products" element={<MyProducts />} />

@@ -14,15 +14,18 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded images statically
+// Serve static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/KYC", express.static(path.join(__dirname, "KYC"))); // 🆕 serve KYC uploads
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
+const kycRoutes = require("./routes/kyc"); // 🆕 import KYC route
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/kyc", kycRoutes); // 🆕 use KYC route
 
 // MongoDB connection
 mongoose

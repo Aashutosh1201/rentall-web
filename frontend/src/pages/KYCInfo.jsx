@@ -15,16 +15,18 @@ const KYCInfo = () => {
       </p>
 
       <div className="flex flex-col sm:flex-row items-center gap-4 mt-4">
+        {/* Recommended KYC button */}
         <Link
           to="/kyc-form"
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition"
+          className="bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition duration-200"
         >
-          ✅ Complete KYC (Recommended)
+          ✅ Proceed to KYC (Recommended)
         </Link>
 
+        {/* Option to skip */}
         <Link
           to="/login"
-          className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-100 transition"
+          className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-100 transition duration-200"
         >
           Skip for now → Login
         </Link>
