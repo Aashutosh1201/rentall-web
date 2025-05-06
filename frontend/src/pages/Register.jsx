@@ -41,7 +41,7 @@ const Register = () => {
         password,
       });
 
-      navigate("/login");
+      navigate("/kyc-info");
     } catch (err) {
       console.error("Register Error:", err);
       setError(err.response?.data?.message || "Registration failed");

@@ -1,3 +1,4 @@
+// ✅ App.jsx (updated routes)
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import Navbar from "./components/Navbar";
@@ -7,6 +8,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingSpinner from "./components/LoadingSpinner";
 import CreateProduct from "./pages/CreateProduct";
 import ProductList from "./pages/ProductList";
+import KYCInfo from "./pages/KYCInfo";
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
@@ -122,7 +124,15 @@ function App() {
             path="/register"
             element={
               <PublicLayout>
-                <Register />
+                <Register redirectTo="/kyc-info" />
+              </PublicLayout>
+            }
+          />
+          <Route
+            path="/kyc-info"
+            element={
+              <PublicLayout>
+                <KYCInfo />
               </PublicLayout>
             }
           />
