@@ -32,11 +32,13 @@ const CategoriesPage = lazy(() => import("./components/Categories"));
 const HowItWorksPage = lazy(() => import("./components/HowItWorks"));
 
 const PublicLayout = ({ children }) => (
-  <>
+  <div className="flex flex-col min-h-screen">
     <Navbar />
-    <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
+    <main className="flex-grow pt-20">
+      <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
+    </main>
     <Footer />
-  </>
+  </div>
 );
 
 const DashboardLayout = ({ children }) => (
@@ -132,7 +134,7 @@ function App() {
           />
           <Route
             path="/kyc-form"
-            element={ // ✅ Add the route
+            element={
               <PublicLayout>
                 <KYCForm />
               </PublicLayout>
