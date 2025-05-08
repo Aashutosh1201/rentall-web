@@ -30,6 +30,7 @@ const MyOrders = lazy(() => import("./pages/Dashboard/MyOrders"));
 const Profile = lazy(() => import("./pages/Dashboard/Profile"));
 const CategoriesPage = lazy(() => import("./components/Categories"));
 const HowItWorksPage = lazy(() => import("./components/HowItWorks"));
+const CategoryProducts = lazy(() => import("./pages/CategoryProducts"));
 
 const PublicLayout = ({ children }) => (
   <div className="flex flex-col min-h-screen">
@@ -89,6 +90,14 @@ function App() {
             element={
               <PublicLayout>
                 <CategoriesPage />
+              </PublicLayout>
+            }
+          />
+          <Route
+            path="/categories/:category"
+            element={
+              <PublicLayout>
+                <CategoryProducts />
               </PublicLayout>
             }
           />
