@@ -17,6 +17,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    phone: {
+      type: String,
+      required: true,
+    },
+    googleId: {
+      type: String,
+      sparse: true,
+    },
     resetPasswordToken: {
       type: String,
     },
