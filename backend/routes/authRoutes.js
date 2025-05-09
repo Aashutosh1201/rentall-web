@@ -1,6 +1,7 @@
 const express = require("express");
 const verifyToken = require("../middleware/authMiddleware");
 const router = express.Router();
+const passport = require("../config/passport");
 const {
   registerUser,
   loginUser,
@@ -9,6 +10,27 @@ const {
   testEmail,
 } = require("../controllers/authController");
 
+// Google OAuth routes
+router.get(
+  "/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+
+router.get(
+  "/google/callback",
+  passport.authenticate("google", { session: false }),
+  (req, res) => {
+    // Send token to frontend through postMessage
+    const html = `
+      <script>
+        window.opener.postMessage({ token: "${req.user.token}" }, "http://localhost:3000");
+      </script>
+    `;
+    res.send(html);
+  }
+);
+
+// Regular auth routes
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/forgot-password", forgotPassword);

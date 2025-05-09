@@ -24,19 +24,55 @@ const Login = () => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      // Open Google OAuth popup
+      const width = 500;
+      const height = 600;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+
+      const popup = window.open(
+        "http://localhost:8000/api/auth/google",
+        "Google Login",
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+
+      // Listen for message from popup
+      window.addEventListener("message", async (event) => {
+        if (event.origin === "http://localhost:8000") {
+          const { token } = event.data;
+          if (token) {
+            const success = await login(token);
+            if (success) {
+              const from = location.state?.from?.pathname || "/dashboard";
+              navigate(from, { replace: true });
+            } else {
+              setError("Failed to login with Google");
+            }
+          }
+          popup.close();
+        }
+      });
+    } catch (err) {
+      console.error("Google Login Error:", err);
+      setError("Failed to login with Google");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-  
+
     try {
       const res = await axios.post(
         "http://localhost:8000/api/auth/login",
         formData
       );
       const token = res.data.token;
-      localStorage.setItem("token", token); // ✅ FIX HERE
-  
+      localStorage.setItem("token", token);
+
       const success = await login(token);
       if (success) {
         const from = location.state?.from?.pathname || "/dashboard";
@@ -53,7 +89,6 @@ const Login = () => {
       setLoading(false);
     }
   };
-  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
@@ -105,6 +140,32 @@ const Login = () => {
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
+
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">
+                Or continue with
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleGoogleLogin}
+            className="mt-4 w-full flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition"
+          >
+            <img
+              src="https://www.google.com/favicon.ico"
+              alt="Google"
+              className="w-5 h-5"
+            />
+            Continue with Google
+          </button>
+        </div>
+
         <p className="text-sm text-gray-600 mt-4 text-center">
           Don't have an account?{" "}
           <Link to="/register" className="text-primary hover:underline">
