@@ -9,7 +9,7 @@ import {
   Info,
 } from "lucide-react";
 import MapPicker from "../components/MapPicker";
-import { Calendar } from "../components/ui/Calendar"; // You'll need to install and import a calendar component
+import ImprovedCalendar from "../components/ui/Calendar";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 export default function CreateProduct() {
@@ -345,7 +345,7 @@ export default function CreateProduct() {
               </label>
 
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full ">
-                <Calendar
+                <ImprovedCalendar
                   mode="multiple"
                   selected={selectedDates}
                   onSelect={handleDateSelect}
