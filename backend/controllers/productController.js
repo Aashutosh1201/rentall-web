@@ -2,31 +2,55 @@ const Product = require("../models/Product");
 
 const createProduct = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      category,
-      price,
-      location,
-      availableDays,
-    } = req.body;
+    const { name, description, category, price, location, availableDays } =
+      req.body;
+
+    // Validate required fields
+    if (
+      !name ||
+      !description ||
+      !category ||
+      !price ||
+      !location ||
+      !availableDays
+    ) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
 
     // Construct the image URL if a file was uploaded
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : "";
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
     // Parse availableDays if sent as a JSON string from FormData
-    const parsedAvailableDays = typeof availableDays === "string"
-      ? JSON.parse(availableDays)
-      : availableDays;
+    let parsedAvailableDays;
+    try {
+      parsedAvailableDays =
+        typeof availableDays === "string"
+          ? JSON.parse(availableDays)
+          : availableDays;
+
+      // Ensure parsedAvailableDays is an array
+      if (!Array.isArray(parsedAvailableDays)) {
+        return res
+          .status(400)
+          .json({ message: "Available days must be an array" });
+      }
+    } catch (err) {
+      return res.status(400).json({ message: "Invalid availableDays format" });
+    }
+
+    // Convert string dates to Date objects
+    const availableDates = parsedAvailableDays.map(
+      (dateStr) => new Date(dateStr)
+    );
 
     const product = new Product({
-      owner: req.user.userId, // verifyToken should set this
+      owner: req.user.userId,
       title: name,
       description,
       category,
       pricePerDay: price,
       location,
-      availableDates: parsedAvailableDays,
+      availableDates,
       imageUrl,
     });
 

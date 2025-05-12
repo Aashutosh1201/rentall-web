@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
-// This is a simplified version of the Calendar component that would replace
-// the existing one in your CreateProduct.jsx file
-export default function ImprovedCalendar() {
+export default function ImprovedCalendar({
+  mode = "multiple",
+  selected = [],
+  onSelect,
+  className = "",
+  classNames = {},
+  components = {},
+  styles = {},
+}) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDates, setSelectedDates] = useState([]);
 
   // Navigation functions
   const prevMonth = () => {
@@ -22,30 +27,31 @@ export default function ImprovedCalendar() {
 
   // Date selection handler
   const handleDateSelect = (date) => {
-    setSelectedDates((prevDates) => {
-      // Check if date is already selected
-      const dateStr = date.toISOString().split("T")[0];
-      const isSelected = prevDates.some(
-        (d) => d.toISOString().split("T")[0] === dateStr
-      );
+    if (!onSelect) return;
 
+    const dateStr = date.toISOString().split("T")[0];
+    const isSelected = selected.some(
+      (d) => d.toISOString().split("T")[0] === dateStr
+    );
+
+    if (mode === "single") {
+      onSelect(isSelected ? null : date);
+    } else {
       if (isSelected) {
-        // Remove date if already selected
-        return prevDates.filter(
-          (d) => d.toISOString().split("T")[0] !== dateStr
+        onSelect(
+          selected.filter((d) => d.toISOString().split("T")[0] !== dateStr)
         );
       } else {
-        // Add date if not selected
-        return [...prevDates, date];
+        onSelect([...selected, date]);
       }
-    });
+    }
   };
 
   // Check if a date is selected
   const isDateSelected = (date) => {
     if (!date) return false;
     const dateStr = date.toISOString().split("T")[0];
-    return selectedDates.some((d) => d.toISOString().split("T")[0] === dateStr);
+    return selected.some((d) => d.toISOString().split("T")[0] === dateStr);
   };
 
   // Check if a date is today
@@ -110,8 +116,16 @@ export default function ImprovedCalendar() {
     return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   };
 
+  // Use provided components or defaults
+  const {
+    IconLeft = () => <ChevronLeft className="h-5 w-5 text-gray-500" />,
+    IconRight = () => <ChevronRight className="h-5 w-5 text-gray-500" />,
+  } = components;
+
   return (
-    <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+    <div
+      className={`bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden ${className}`}
+    >
       {/* Calendar Header */}
       <div className="p-4 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between">
@@ -120,7 +134,7 @@ export default function ImprovedCalendar() {
             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
             aria-label="Previous month"
           >
-            <ChevronLeft className="h-5 w-5 text-gray-500" />
+            <IconLeft />
           </button>
 
           <h2 className="text-lg font-medium text-gray-900">
@@ -132,7 +146,7 @@ export default function ImprovedCalendar() {
             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
             aria-label="Next month"
           >
-            <ChevronRight className="h-5 w-5 text-gray-500" />
+            <IconRight />
           </button>
         </div>
       </div>
@@ -158,13 +172,13 @@ export default function ImprovedCalendar() {
       </div>
 
       {/* Selected Dates Display */}
-      {selectedDates.length > 0 && (
+      {selected.length > 0 && (
         <div className="p-4 bg-gray-50 border-t border-gray-200">
           <h3 className="text-sm font-medium text-gray-700 mb-2">
-            Selected dates ({selectedDates.length}):
+            Selected dates ({selected.length}):
           </h3>
           <div className="flex flex-wrap gap-2">
-            {selectedDates
+            {selected
               .sort((a, b) => a - b)
               .map((date, index) => (
                 <span
@@ -178,7 +192,14 @@ export default function ImprovedCalendar() {
                   })}
                   <button
                     type="button"
-                    onClick={() => handleDateSelect(date)}
+                    onClick={() => {
+                      const dateStr = date.toISOString().split("T")[0];
+                      onSelect(
+                        selected.filter(
+                          (d) => d.toISOString().split("T")[0] !== dateStr
+                        )
+                      );
+                    }}
                     className="ml-1.5 rounded-full p-0.5 hover:bg-blue-200"
                     aria-label="Remove date"
                   >

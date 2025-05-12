@@ -20,7 +20,6 @@ export default function CreateProduct() {
     price: "",
     location: "",
     category: "",
-    availableDays: [], // This will now store Date objects
     image: null,
   });
 
@@ -47,40 +46,53 @@ export default function CreateProduct() {
     }
   };
 
-  const handleDateSelect = (date) => {
-    setSelectedDates((prevDates) => {
-      // Check if date is already selected
-      const dateStr = date.toISOString().split("T")[0];
-      const isSelected = prevDates.some(
-        (d) => d.toISOString().split("T")[0] === dateStr
-      );
+  const handleDateSelect = (dates) => {
+    // Handle undefined or null case
+    if (!dates) {
+      setSelectedDates([]);
+      return;
+    }
+    console.log(dates);
 
-      if (isSelected) {
-        // Remove date if already selected
-        return prevDates.filter(
-          (d) => d.toISOString().split("T")[0] !== dateStr
-        );
-      } else {
-        // Add date if not selected
-        return [...prevDates, date];
-      }
-    });
-  };
+    // Convert single date to array
+    const newDates = Array.isArray(dates) ? dates : [dates];
 
-  // Format dates for form submission
-  const formatDatesForSubmission = () => {
-    return selectedDates.map((date) => date.toISOString().split("T")[0]);
+    // Process dates - ensure they're valid Date objects and normalize time
+    const validDates = newDates
+      .map((date) => {
+        // If date is already a Date object, use it
+        if (date instanceof Date && !isNaN(date)) {
+          return new Date(date.setHours(0, 0, 0, 0));
+        }
+        // If date is a string, try to parse it
+        if (typeof date === "string") {
+          const parsedDate = new Date(date);
+          if (!isNaN(parsedDate)) {
+            return new Date(parsedDate.setHours(0, 0, 0, 0));
+          }
+        }
+        return null;
+      })
+      .filter((date) => date !== null);
+
+    console.log("Processed dates:", validDates);
+    setSelectedDates(validDates);
   };
 
   const handleUseMyLocation = () => {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        const { latitude, longitude } = position.coords;
-        setFormData({
-          ...formData,
-          location: `${latitude}, ${longitude}`,
-        });
-      });
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setFormData({
+            ...formData,
+            location: `${latitude}, ${longitude}`,
+          });
+        },
+        (error) => {
+          alert("Error getting location: " + error.message);
+        }
+      );
     } else {
       alert("Geolocation is not supported by your browser.");
     }
@@ -88,6 +100,17 @@ export default function CreateProduct() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    console.log("Selected dates before submit:", selectedDates); // Debug log
+    console.log("Selected dates length:", selectedDates.length); // Debug log
+    console.log("Selected dates type:", typeof selectedDates); // Debug log
+    console.log("Selected dates is array:", Array.isArray(selectedDates)); // Debug log
+
+    if (selectedDates.length === 0) {
+      alert("Please select at least one available date");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -97,7 +120,13 @@ export default function CreateProduct() {
       form.append("price", formData.price);
       form.append("location", formData.location);
       form.append("category", formData.category);
-      form.append("availableDays", JSON.stringify(formatDatesForSubmission()));
+
+      // Format dates as YYYY-MM-DD strings
+      const formattedDates = selectedDates.map(
+        (date) => date.toISOString().split("T")[0]
+      );
+      form.append("availableDays", JSON.stringify(formattedDates));
+
       if (formData.image) {
         form.append("image", formData.image);
       }
@@ -118,7 +147,9 @@ export default function CreateProduct() {
         alert("✅ Product created successfully!");
         navigate("/dashboard/products");
       } else {
-        alert("❌ Failed to create product: " + data.message);
+        alert(
+          "❌ Failed to create product: " + (data.message || "Unknown error")
+        );
       }
     } catch (err) {
       console.error("Submission Error:", err);
@@ -139,7 +170,6 @@ export default function CreateProduct() {
     "Other",
   ];
 
-  // Function to check if a date is selected
   const isDateSelected = (date) => {
     const dateStr = date.toISOString().split("T")[0];
     return selectedDates.some((d) => d.toISOString().split("T")[0] === dateStr);
@@ -264,6 +294,7 @@ export default function CreateProduct() {
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter daily rental price"
                   required
+                  min="0"
                 />
               </div>
             </div>
@@ -283,7 +314,6 @@ export default function CreateProduct() {
                     onChange={handleChange}
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter location"
-                    readOnly
                   />
                 </div>
                 <button
@@ -305,15 +335,33 @@ export default function CreateProduct() {
 
             {showMap && (
               <div className="border rounded-lg p-4">
-                <MapPicker
-                  onLocationSelect={(coords) => {
-                    setFormData({
-                      ...formData,
-                      location: `${coords.lat}, ${coords.lng}`,
-                    });
-                    setShowMap(false);
-                  }}
-                />
+                <div className="h-64 w-full mb-4">
+                  <MapPicker
+                    initialLocation={
+                      formData.location
+                        ? {
+                            lat: parseFloat(formData.location.split(",")[0]),
+                            lng: parseFloat(formData.location.split(",")[1]),
+                          }
+                        : null
+                    }
+                    onLocationSelect={(coords) => {
+                      setFormData({
+                        ...formData,
+                        location: `${coords.lat}, ${coords.lng}`,
+                      });
+                      setShowMap(false);
+                    }}
+                    onClose={() => setShowMap(false)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMap(false)}
+                  className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                >
+                  Confirm Location
+                </button>
               </div>
             )}
 
@@ -338,13 +386,13 @@ export default function CreateProduct() {
               </select>
             </div>
 
-            {/* Available Days - Replaced with Calendar */}
+            {/* Available Dates */}
             <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">
                 Available Dates
               </label>
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full ">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full">
                 <ImprovedCalendar
                   mode="multiple"
                   selected={selectedDates}
@@ -367,9 +415,8 @@ export default function CreateProduct() {
                     row: "flex w-full my-1",
                     cell: "flex-1 text-center relative h-9 [&:has([aria-selected])]:bg-primary-50",
                     day: "w-9 h-9 p-0 mx-auto font-normal rounded-md hover:bg-gray-100 transition-colors flex items-center justify-center",
-                    day_selected:
-                      "bg-primary-600 text-white hover:bg-primary-700",
-                    day_today: "border border-primary-500 text-primary-600",
+                    day_selected: "bg-blue-600 text-white hover:bg-blue-700",
+                    day_today: "border border-blue-500 text-blue-600",
                     day_outside: "text-gray-400 opacity-50",
                   }}
                   components={{
@@ -393,7 +440,7 @@ export default function CreateProduct() {
                       .map((date, index) => (
                         <span
                           key={index}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800"
+                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
                         >
                           {date.toLocaleDateString("en-US", {
                             weekday: "short",
@@ -402,8 +449,14 @@ export default function CreateProduct() {
                           })}
                           <button
                             type="button"
-                            onClick={() => handleDateSelect(date)}
-                            className="ml-1.5 rounded-full p-0.5 hover:bg-primary-200"
+                            onClick={() => {
+                              // Remove this date from selectedDates
+                              const newDates = selectedDates.filter(
+                                (d) => d.toISOString() !== date.toISOString()
+                              );
+                              setSelectedDates(newDates);
+                            }}
+                            className="ml-1.5 rounded-full p-0.5 hover:bg-blue-200"
                           >
                             <X className="h-3 w-3" />
                           </button>
