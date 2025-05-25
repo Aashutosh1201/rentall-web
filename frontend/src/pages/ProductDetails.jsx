@@ -1,9 +1,12 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FaMapMarkerAlt, FaCalendarAlt, FaTag } from "react-icons/fa";
+import { useAuth } from "../context/AuthContext";
 
 export default function ProductDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,6 +29,16 @@ export default function ProductDetails() {
 
     fetchProduct();
   }, [id]);
+
+  const handleRentClick = () => {
+    if (!user) {
+      // Store the current URL to redirect back after login
+      localStorage.setItem("redirectAfterLogin", `/products/${id}`);
+      navigate("/login");
+    } else {
+      navigate(`/rent/${id}`);
+    }
+  };
 
   if (loading)
     return (
@@ -118,10 +131,21 @@ export default function ProductDetails() {
                 </div>
 
                 {/* Rent Button */}
-                <div className="mt-8">
-                  <button className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                <div className="mt-8 space-y-4">
+                  <button
+                    onClick={handleRentClick}
+                    className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                  >
                     Rent Now
                   </button>
+                  {user && (
+                    <button
+                      onClick={() => navigate(`/rent/${id}?action=cart`)}
+                      className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
+                    >
+                      Add to Cart
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

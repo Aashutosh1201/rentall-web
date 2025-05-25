@@ -10,6 +10,8 @@ import ProductList from "./pages/ProductList";
 import KYCInfo from "./pages/KYCInfo";
 import KYCForm from "./pages/KYCForm";
 import ProductDetails from "./pages/ProductDetails";
+import Rent from "./pages/Rent";
+import Cart from "./pages/Cart";
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
@@ -168,11 +170,33 @@ function App() {
             }
           />
           <Route
+            path="/rent/:id"
+            element={
+              <PrivateRoute>
+                <PublicLayout>
+                  <Rent />
+                </PublicLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="/reset-password/:token"
             element={
               <PublicLayout>
                 <ResetPassword />
               </PublicLayout>
+            }
+          />
+
+          {/* Protected routes */}
+          <Route
+            path="/cart"
+            element={
+              <PrivateRoute>
+                <PublicLayout>
+                  <Cart />
+                </PublicLayout>
+              </PrivateRoute>
             }
           />
 
