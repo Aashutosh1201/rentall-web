@@ -8,12 +8,12 @@ import LoadingSpinner from "./components/LoadingSpinner";
 import CreateProduct from "./pages/CreateProduct";
 import ProductList from "./pages/ProductList";
 import KYCInfo from "./pages/KYCInfo";
-import KYCForm from "./pages/KYCForm"; // ✅ Add this import
+import KYCForm from "./pages/KYCForm";
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
 const HowItWorks = lazy(() => import("./components/HowItWorks"));
-const Categories = lazy(() => import("./components/Categories"));
+const Categories = lazy(() => import("./pages/Categories"));
 const FeaturedProducts = lazy(() => import("./components/FeaturedProducts"));
 const WhyRentAll = lazy(() => import("./components/WhyRentAll"));
 const CustomerReviews = lazy(() => import("./components/CustomerReviews"));
@@ -28,7 +28,7 @@ const DashboardHome = lazy(() => import("./pages/Dashboard/DashboardHome"));
 const MyProducts = lazy(() => import("./pages/Dashboard/MyProducts"));
 const MyOrders = lazy(() => import("./pages/Dashboard/MyOrders"));
 const Profile = lazy(() => import("./pages/Dashboard/Profile"));
-const CategoriesPage = lazy(() => import("./components/Categories"));
+const CategoriesPage = lazy(() => import("./pages/Categories"));
 const HowItWorksPage = lazy(() => import("./components/HowItWorks"));
 const CategoryProducts = lazy(() => import("./pages/CategoryProducts"));
 

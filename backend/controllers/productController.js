@@ -65,7 +65,18 @@ const createProduct = async (req, res) => {
 
 const getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find().populate("owner", "fullName email");
+    const { category } = req.query;
+
+    const filter = {};
+    if (category) {
+      filter.category = { $regex: new RegExp(`^${category}$`, "i") };
+    }
+
+    const products = await Product.find(filter).populate(
+      "owner",
+      "fullName email"
+    );
+
     res.status(200).json(products);
   } catch (error) {
     console.error("Get Products Error:", error);
