@@ -11,14 +11,18 @@ const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleRedirectInProgress, setGoogleRedirectInProgress] =
+    useState(false);
 
   // Check if user is already authenticated
   useEffect(() => {
-    if (isAuthenticated()) {
-      const from = location.state?.from?.pathname || "/dashboard";
-      navigate(from, { replace: true });
+    if (isAuthenticated() && !googleRedirectInProgress) {
+      const redirectPath =
+        localStorage.getItem("redirectAfterLogin") || "/dashboard";
+      localStorage.removeItem("redirectAfterLogin");
+      navigate(redirectPath, { replace: true });
     }
-  }, [isAuthenticated, navigate, location]);
+  }, [isAuthenticated, navigate, googleRedirectInProgress]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -26,7 +30,6 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      // Open Google OAuth popup
       const width = 500;
       const height = 600;
       const left = window.screenX + (window.outerWidth - width) / 2;
@@ -38,22 +41,28 @@ const Login = () => {
         `width=${width},height=${height},left=${left},top=${top}`
       );
 
-      // Listen for message from popup
-      window.addEventListener("message", async (event) => {
+      const handleMessage = async (event) => {
         if (event.origin === "http://localhost:8000") {
           const { token } = event.data;
           if (token) {
             const success = await login(token);
             if (success) {
-              const from = location.state?.from?.pathname || "/dashboard";
-              navigate(from, { replace: true });
+              const redirectPath =
+                localStorage.getItem("redirectAfterLogin") || "/dashboard";
+              console.log("Google redirecting to:", redirectPath);
+              localStorage.removeItem("redirectAfterLogin");
+              navigate(redirectPath, { replace: true });
             } else {
               setError("Failed to login with Google");
             }
           }
           popup.close();
+
+          window.removeEventListener("message", handleMessage);
         }
-      });
+      };
+      setGoogleRedirectInProgress(true);
+      window.addEventListener("message", handleMessage);
     } catch (err) {
       console.error("Google Login Error:", err);
       setError("Failed to login with Google");
@@ -75,8 +84,10 @@ const Login = () => {
 
       const success = await login(token);
       if (success) {
-        const from = location.state?.from?.pathname || "/dashboard";
-        navigate(from, { replace: true });
+        const redirectPath =
+          localStorage.getItem("redirectAfterLogin") || "/dashboard";
+        localStorage.removeItem("redirectAfterLogin");
+        navigate(redirectPath, { replace: true });
       } else {
         setError("Invalid token received");
       }

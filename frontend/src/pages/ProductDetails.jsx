@@ -30,10 +30,19 @@ export default function ProductDetails() {
     fetchProduct();
   }, [id]);
 
+  const handleAddToCartClick = () => {
+    if (!user) {
+      localStorage.setItem("redirectAfterLogin", `/rent/${id}?action=cart`);
+      navigate("/login");
+    } else {
+      navigate(`/rent/${id}?action=cart`);
+    }
+  };
+
   const handleRentClick = () => {
     if (!user) {
       // Store the current URL to redirect back after login
-      localStorage.setItem("redirectAfterLogin", `/products/${id}`);
+      localStorage.setItem("redirectAfterLogin", `/rent/${id}`);
       navigate("/login");
     } else {
       navigate(`/rent/${id}`);
@@ -138,14 +147,13 @@ export default function ProductDetails() {
                   >
                     Rent Now
                   </button>
-                  {user && (
-                    <button
-                      onClick={() => navigate(`/rent/${id}?action=cart`)}
-                      className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
-                    >
-                      Add to Cart
-                    </button>
-                  )}
+                  {/* Add to cart button */}
+                  <button
+                    onClick={handleAddToCartClick}
+                    className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
+                  >
+                    Add to Cart
+                  </button>
                 </div>
               </div>
             </div>
