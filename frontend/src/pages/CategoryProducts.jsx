@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function CategoryProducts() {
   const { category } = useParams();
@@ -33,42 +34,45 @@ export default function CategoryProducts() {
       </h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {products.map((product) => (
-          <div
-            key={product._id}
-            className="border rounded-lg shadow-sm p-4 bg-white hover:shadow-md transition"
-          >
-            <img
-              src={
-                product.imageUrl
-                  ? `http://localhost:8000${product.imageUrl}`
-                  : "/no-image.jpg"
-              }
-              alt={product.title || "Unnamed product"}
-              className="w-full h-48 object-cover rounded mb-3"
-            />
-            <h2 className="text-lg font-semibold mb-1">
-              {product.title || "No name"}
-            </h2>
-            <p className="text-gray-800 mb-1">
-              Price: Rs. {product.pricePerDay || "N/A"}/day
-            </p>
-            <p className="text-gray-600 text-sm mb-1">
-              Location:{" "}
-              {typeof product.location === "string"
-                ? product.location
-                : Array.isArray(product.location)
-                ? product.location.join(", ")
-                : typeof product.location === "object" && product.location.lat
-                ? `${product.location.lat}, ${product.location.lng}`
-                : "Not specified"}
-            </p>
-            <p className="text-gray-500 text-sm">
-              Available:{" "}
-              {(product.availableDates || []).join(", ") || "Not specified"}
-            </p>
-          </div>
-        ))}
+        {products.map((product) => {
+          console.log("Product:", product);
+          return (
+            <Link to={`/product/${product._id}`} key={product._id}>
+              <div className="border rounded-lg shadow-sm p-4 bg-white hover:shadow-md transition">
+                <img
+                  src={
+                    product.imageUrl
+                      ? `http://localhost:8000${product.imageUrl}`
+                      : "/no-image.jpg"
+                  }
+                  alt={product.title || "Unnamed product"}
+                  className="w-full h-48 object-cover rounded mb-3"
+                />
+                <h2 className="text-lg font-semibold mb-1">
+                  {product.title || "No name"}
+                </h2>
+                <p className="text-gray-800 mb-1">
+                  Price: Rs. {product.pricePerDay || "N/A"}/day
+                </p>
+                <p className="text-gray-600 text-sm mb-1">
+                  Location:{" "}
+                  {typeof product.location === "string"
+                    ? product.location
+                    : Array.isArray(product.location)
+                    ? product.location.join(", ")
+                    : typeof product.location === "object" &&
+                      product.location.lat
+                    ? `${product.location.lat}, ${product.location.lng}`
+                    : "Not specified"}
+                </p>
+                <p className="text-gray-500 text-sm">
+                  Available:{" "}
+                  {(product.availableDates || []).join(", ") || "Not specified"}
+                </p>
+              </div>
+            </Link>
+          );
+        })}
       </div>
 
       {products.length === 0 && (

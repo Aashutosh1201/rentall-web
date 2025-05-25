@@ -2,11 +2,11 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const passport = require("./config/passport");
-const session = require("express-session");
-
 // Load environment variables
 dotenv.config();
+const passport = require("./config/passport");
+const session = require("express-session");
+const path = require("path");
 
 const app = express();
 
@@ -18,6 +18,9 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Session
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "your-secret-key",
@@ -25,7 +28,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === "production",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 24 * 60 * 60 * 1000,
     },
   })
 );
@@ -33,33 +36,53 @@ app.use(
 // Initialize Passport
 app.use(passport.initialize());
 
-// Debug middleware
+// Serve static files
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/KYC", express.static(path.join(__dirname, "KYC")));
+
+// Logging middleware
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
 });
 
-// Routes
-app.use("/api/auth", require("./routes/authRoutes"));
+// Import routes
+const authRoutes = require("./routes/authRoutes");
+const productRoutes = require("./routes/productRoutes");
+const kycRoutes = require("./routes/kyc");
+const categoryRoutes = require("./routes/categoryRoutes");
 
-// Error handling middleware
+// Register routes
+app.use("/api/auth", authRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/kyc", kycRoutes);
+app.use("/api/categories", categoryRoutes);
+
+// Root route
+app.get("/", (req, res) => {
+  res.send("🚀 RentALL API is working!");
+});
+
+// Error handler
 app.use((err, req, res, next) => {
   console.error("Error:", err);
   res.status(500).json({
-    message: "Internal server error",
-    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    message: err.message,
+    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
   });
 });
 
-// Connect to MongoDB
+// MongoDB
 mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+  .connect(process.env.MONGODB_URI || process.env.MONGO_URI)
+  .then(() => console.log("✅ Connected to MongoDB"))
+  .catch((err) => {
+    console.error("❌ MongoDB Error:", err);
+    process.exit(1);
+  });
 
+// Start server
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log("Environment:", process.env.NODE_ENV || "development");
-  console.log("Google OAuth configured:", !!process.env.GOOGLE_CLIENT_ID);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

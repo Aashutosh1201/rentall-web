@@ -1,5 +1,9 @@
 const express = require("express");
-const { createProduct, getAllProducts } = require("../controllers/productController");
+const {
+  createProduct,
+  getAllProducts,
+  getOneProduct,
+} = require("../controllers/productController");
 const verifyToken = require("../middleware/authMiddleware");
 const upload = require("../middleware/upload"); // ✅ use the shared multer config
 
@@ -10,5 +14,5 @@ router.post("/", verifyToken, upload.single("image"), createProduct);
 
 // GET route to fetch all products
 router.get("/", getAllProducts);
-
+router.get("/:id", getOneProduct);
 module.exports = router;

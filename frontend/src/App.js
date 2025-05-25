@@ -9,6 +9,7 @@ import CreateProduct from "./pages/CreateProduct";
 import ProductList from "./pages/ProductList";
 import KYCInfo from "./pages/KYCInfo";
 import KYCForm from "./pages/KYCForm";
+import ProductDetails from "./pages/ProductDetails";
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
@@ -77,11 +78,20 @@ function App() {
               </PublicLayout>
             }
           />
+
           <Route
             path="/products"
             element={
               <PublicLayout>
                 <ProductList />
+              </PublicLayout>
+            }
+          />
+          <Route
+            path="/product/:id"
+            element={
+              <PublicLayout>
+                <ProductDetails />
               </PublicLayout>
             }
           />
