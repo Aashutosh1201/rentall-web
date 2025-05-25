@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Upload,
@@ -28,6 +28,26 @@ export default function CreateProduct() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDates, setSelectedDates] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/api/categories");
+        const data = await response.json();
+
+        if (response.ok) {
+          setCategories(data); // data is an array of categories
+        } else {
+          console.error("Failed to fetch categories", data.message);
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, files } = e.target;
@@ -198,17 +218,6 @@ export default function CreateProduct() {
       setIsSubmitting(false);
     }
   };
-
-  const categories = [
-    "Electronics",
-    "Tools",
-    "Vehicles",
-    "Furniture",
-    "Sports",
-    "Outdoor",
-    "Party",
-    "Other",
-  ];
 
   const isDateSelected = (date) => {
     const dateStr = date.toISOString().split("T")[0];
@@ -419,20 +428,23 @@ export default function CreateProduct() {
               <label className="block text-sm font-medium text-gray-700">
                 Category
               </label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                required
-              >
-                <option value="">Select a category</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((cat) => (
+                    <option key={cat._id} value={cat.label}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Available Dates */}
