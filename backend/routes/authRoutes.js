@@ -13,20 +13,36 @@ const {
 // Google OAuth routes
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    prompt: "select_account",
+  })
 );
 
 router.get(
   "/google/callback",
   passport.authenticate("google", { session: false }),
   (req, res) => {
-    // Send token to frontend through postMessage
-    const html = `
-      <script>
-        window.opener.postMessage({ token: "${req.user.token}" }, "http://localhost:3000");
-      </script>
-    `;
-    res.send(html);
+    try {
+      if (!req.user || !req.user.token) {
+        console.log("No user or token in request");
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/login?error=${encodeURIComponent(
+            "Authentication failed"
+          )}`
+        );
+      }
+
+      console.log("Google authentication successful");
+      res.redirect(`${process.env.FRONTEND_URL}/login?token=${req.user.token}`);
+    } catch (err) {
+      console.log("Error in Google callback:", err);
+      res.redirect(
+        `${process.env.FRONTEND_URL}/login?error=${encodeURIComponent(
+          "An error occurred during authentication"
+        )}`
+      );
+    }
   }
 );
 

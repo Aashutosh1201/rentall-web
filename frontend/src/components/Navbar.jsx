@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const Navbar = () => {
-  const { isAuthenticated, logout } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <nav className="w-full bg-white shadow-md fixed top-0 left-0 z-50">
@@ -30,7 +30,26 @@ const Navbar = () => {
               How It Works
             </Link>
           </li>
-          {!isAuthenticated() ? (
+          {user ? (
+            <>
+              <li>
+                <Link
+                  to="/dashboard"
+                  className="hover:text-blue-600 transition"
+                >
+                  Dashboard
+                </Link>
+              </li>
+              <li>
+                <button
+                  onClick={logout}
+                  className="bg-red-600 text-white px-4 py-1 rounded-md hover:bg-red-700 transition"
+                >
+                  Logout
+                </button>
+              </li>
+            </>
+          ) : (
             <>
               <li>
                 <Link to="/login" className="hover:text-blue-600 transition">
@@ -44,25 +63,6 @@ const Navbar = () => {
                 >
                   Sign Up
                 </Link>
-              </li>
-            </>
-          ) : (
-            <>
-              <li>
-                <Link
-                  to="/dashboard"
-                  className="hover:text-blue-600 transition"
-                >
-                  Dashboard
-                </Link>
-              </li>
-              <li>
-                <button
-                  onClick={logout}
-                  className="text-red-600 hover:text-red-700 transition"
-                >
-                  Logout
-                </button>
               </li>
             </>
           )}

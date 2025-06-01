@@ -11,6 +11,16 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   );
 }
 
+passport.serializeUser((user, done) => {
+  console.log("Serializing user:", user);
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  console.log("Deserializing user:", user);
+  done(null, user);
+});
+
 passport.use(
   new GoogleStrategy(
     {
@@ -20,34 +30,32 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        console.log("Google profile received:", {
-          id: profile.id,
+        console.log("Google OAuth callback received:", {
+          profileId: profile.id,
           email: profile.emails?.[0]?.value,
           name: profile.displayName,
         });
+
+        if (!profile.emails || !profile.emails[0]?.value) {
+          return done(new Error("No email found in Google profile"), null);
+        }
 
         // Check if user already exists
         let user = await User.findOne({ email: profile.emails[0].value });
 
         if (!user) {
-          console.log("Creating new user from Google profile");
           // Create new user if doesn't exist
           user = await User.create({
             email: profile.emails[0].value,
             fullName: profile.displayName,
             googleId: profile.id,
-            // Set a random password for Google users
             password: Math.random().toString(36).slice(-8),
-            // Set a default phone number that can be updated later
             phone: "0000000000",
           });
-        } else {
-          console.log("Existing user found:", user.email);
+        } else if (!user.googleId) {
           // Update Google ID if not set
-          if (!user.googleId) {
-            user.googleId = profile.id;
-            await user.save();
-          }
+          user.googleId = profile.id;
+          await user.save();
         }
 
         // Generate JWT token
@@ -57,7 +65,7 @@ passport.use(
           { expiresIn: "2h" }
         );
 
-        return done(null, { user, token });
+        return done(null, { token });
       } catch (error) {
         console.error("Google authentication error:", error);
         return done(error, null);
@@ -65,15 +73,5 @@ passport.use(
     }
   )
 );
-
-// Serialize user for the session
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-
-// Deserialize user from the session
-passport.deserializeUser((user, done) => {
-  done(null, user);
-});
 
 module.exports = passport;

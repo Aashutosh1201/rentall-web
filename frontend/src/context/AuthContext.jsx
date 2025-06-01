@@ -14,13 +14,13 @@ export const AuthProvider = ({ children }) => {
       const currentTime = Date.now() / 1000;
 
       if (decoded.exp < currentTime) {
-        console.error("Token expired");
+        console.log("Token expired");
         localStorage.removeItem("token");
         return null;
       }
       return decoded;
     } catch (err) {
-      console.error("Invalid token:", err);
+      console.log("Invalid token");
       localStorage.removeItem("token");
       return null;
     }
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
       }
       return false;
     } catch (err) {
-      console.error("Login error:", err);
+      console.log("Login error");
       return false;
     }
   };

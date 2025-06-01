@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { FaCalendarAlt, FaTag } from "react-icons/fa";
+import KhaltiCheckout from "khalti-checkout-web";
+import axios from "../api/axios";
 
 export default function Rent() {
   const { id } = useParams();
@@ -24,15 +26,10 @@ export default function Rent() {
 
     const fetchProduct = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/products/${id}`);
-        const data = await res.json();
-        if (res.ok) {
-          setProduct(data);
-        } else {
-          setError(data.message || "Failed to load product");
-        }
+        const { data } = await axios.get(`/products/${id}`);
+        setProduct(data);
       } catch (err) {
-        setError("Failed to load product");
+        setError(err.response?.data?.message || "Failed to load product");
         console.error("Error fetching product:", err);
       } finally {
         setLoading(false);
@@ -41,6 +38,45 @@ export default function Rent() {
 
     fetchProduct();
   }, [id, user, navigate]);
+
+  const khaltiConfig = {
+    publicKey: "test_public_key_dc74c3c2b7b54c87b70879c2e728d6ee",
+    productIdentity: id,
+    productName: product?.title || "Rental Product",
+    productUrl: window.location.href,
+    eventHandler: {
+      onSuccess(payload) {
+        console.log("Khalti Payment Success", payload);
+
+        axios
+          .post("/payment/verify", {
+            token: payload.token,
+            amount: payload.amount,
+          })
+          .then(({ data }) => {
+            if (data.success) {
+              alert("Payment verified successfully!");
+              navigate("/dashboard");
+            } else {
+              alert("Payment verification failed.");
+            }
+          })
+          .catch((err) => {
+            console.error("Error verifying payment", err);
+            alert("Something went wrong.");
+          });
+      },
+
+      onError(error) {
+        console.error("Khalti Payment Error", error);
+        alert("Payment failed.");
+      },
+      onClose() {
+        console.log("Khalti widget is closing");
+      },
+    },
+    paymentPreference: ["KHALTI"],
+  };
 
   const calculateTotal = () => {
     if (!product) return 0;
@@ -54,28 +90,15 @@ export default function Rent() {
     }
 
     try {
-      const res = await fetch("http://localhost:8000/api/cart", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${user.token}`,
-        },
-        body: JSON.stringify({
-          productId: id,
-          rentalDays,
-          startDate,
-          endDate,
-        }),
+      await axios.post("/cart", {
+        productId: id,
+        rentalDays,
+        startDate,
+        endDate,
       });
-
-      if (res.ok) {
-        navigate("/cart");
-      } else {
-        const data = await res.json();
-        setError(data.message || "Failed to add to cart");
-      }
+      navigate("/cart");
     } catch (err) {
-      setError("Failed to add to cart");
+      setError(err.response?.data?.message || "Failed to add to cart");
       console.error("Error adding to cart:", err);
     }
   };
@@ -87,31 +110,21 @@ export default function Rent() {
     }
 
     try {
-      const res = await fetch("http://localhost:8000/api/rentals", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${user.token}`,
-        },
-        body: JSON.stringify({
-          productId: id,
-          rentalDays,
-          startDate,
-          endDate,
-        }),
+      const { data } = await axios.post("/rentals", {
+        productId: id,
+        rentalDays,
+        startDate,
+        endDate,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        // Here you would typically redirect to a payment gateway
-        alert("Rental successful! Redirecting to payment...");
-        // navigate("/payment", { state: { rentalId: data.rentalId } });
+      if (data.success) {
+        const checkout = new KhaltiCheckout(khaltiConfig);
+        checkout.show({ amount: calculateTotal() * 100 }); // amount in paisa
       } else {
-        const data = await res.json();
         setError(data.message || "Failed to process rental");
       }
     } catch (err) {
-      setError("Failed to process rental");
+      setError(err.response?.data?.message || "Failed to process rental");
       console.error("Error processing rental:", err);
     }
   };
@@ -190,7 +203,10 @@ export default function Rent() {
                     type="number"
                     min="1"
                     value={rentalDays}
-                    onChange={(e) => setRentalDays(parseInt(e.target.value))}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setRentalDays(value === "" ? "" : parseInt(value));
+                    }}
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>

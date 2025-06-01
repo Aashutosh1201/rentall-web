@@ -7,20 +7,31 @@ dotenv.config();
 const passport = require("./config/passport");
 const session = require("express-session");
 const path = require("path");
-
+const PaymentRoute = require("./routes/paymentRoute");
 const app = express();
 
-// Middleware
+// Security headers middleware
+app.use((req, res, next) => {
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  next();
+});
+
+// CORS configuration
 app.use(
   cors({
     origin: "http://localhost:3000",
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session
+// Session configuration
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "your-secret-key",
@@ -29,12 +40,14 @@ app.use(
     cookie: {
       secure: process.env.NODE_ENV === "production",
       maxAge: 24 * 60 * 60 * 1000,
+      sameSite: "lax",
     },
   })
 );
 
 // Initialize Passport
 app.use(passport.initialize());
+app.use(passport.session());
 
 // Serve static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -51,12 +64,14 @@ const authRoutes = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
 const kycRoutes = require("./routes/kyc");
 const categoryRoutes = require("./routes/categoryRoutes");
-
+const rentalRoutes = require("./routes/rentalRoutes");
 // Register routes
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/kyc", kycRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/payment", PaymentRoute);
+app.use("/api/rentals", rentalRoutes);
 
 // Root route
 app.get("/", (req, res) => {
