@@ -1,5 +1,5 @@
 import React from "react";
-import { ShoppingBag, CalendarCheck2, Handshake } from "lucide-react";
+import { ShoppingBag, CalendarCheck, Award } from "lucide-react";
 
 const steps = [
   {
@@ -8,12 +8,12 @@ const steps = [
     desc: "Search from a variety of categories and pick what you need.",
   },
   {
-    icon: <CalendarCheck2 className="w-10 h-10 text-blue-600" />,
+    icon: <CalendarCheck className="w-10 h-10 text-blue-600" />,
     title: "Select Date & Book",
     desc: "Choose available dates, add to cart, and confirm your rental.",
   },
   {
-    icon: <Handshake className="w-10 h-10 text-blue-600" />,
+    icon: <Award className="w-10 h-10 text-blue-600" />,
     title: "Pickup or Get Delivered",
     desc: "Coordinate pickup or get it delivered to your doorstep.",
   },

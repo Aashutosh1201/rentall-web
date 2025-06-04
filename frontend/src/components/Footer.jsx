@@ -1,7 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Facebook, Instagram, Twitter } from "lucide-react";
-
+import { FaFacebookF, FaInstagram, FaTwitter } from "react-icons/fa";
 const Footer = () => {
   return (
     <footer className="bg-gray-900 text-gray-300 py-10">
@@ -37,7 +36,7 @@ const Footer = () => {
             className="hover:text-white transition"
             aria-label="Facebook"
           >
-            <Facebook className="w-5 h-5" />
+            <FaFacebookF size={20} />
           </a>
           <a
             href="https://instagram.com"
@@ -46,7 +45,7 @@ const Footer = () => {
             className="hover:text-white transition"
             aria-label="Instagram"
           >
-            <Instagram className="w-5 h-5" />
+            <FaInstagram size={20} />
           </a>
           <a
             href="https://twitter.com"
@@ -55,7 +54,7 @@ const Footer = () => {
             className="hover:text-white transition"
             aria-label="Twitter"
           >
-            <Twitter className="w-5 h-5" />
+            <FaTwitter size={20} />
           </a>
         </div>
       </div>

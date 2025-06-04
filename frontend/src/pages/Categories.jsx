@@ -82,6 +82,11 @@ const Categories = () => {
     );
   }
 
+  const renderIcon = (iconName) => {
+    const Icon = iconComponents[iconName] || Wrench;
+    return <Icon className="w-8 h-8 text-blue-600" />;
+  };
+
   return (
     <section className="py-20 bg-gray-50">
       <div className="max-w-6xl mx-auto px-4">
@@ -90,23 +95,18 @@ const Categories = () => {
         </h2>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-          {categories.map((cat) => {
-            const IconComponent = iconComponents[cat.icon] || Wrench;
-            return (
-              <Link
-                key={cat._id}
-                to={`/categories/${cat.label.toLowerCase()}`}
-                className="flex flex-col items-center justify-center bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition cursor-pointer"
-              >
-                <div className="mb-2">
-                  <IconComponent className="w-8 h-8 text-blue-600" />
-                </div>
-                <span className="text-sm font-medium text-gray-700">
-                  {cat.label}
-                </span>
-              </Link>
-            );
-          })}
+          {categories.map((cat) => (
+            <Link
+              key={cat._id}
+              to={`/categories/${cat.label.toLowerCase()}`}
+              className="flex flex-col items-center justify-center bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition cursor-pointer"
+            >
+              <div className="mb-2">{renderIcon(cat.icon)}</div>
+              <span className="text-sm font-medium text-gray-700">
+                {cat.label}
+              </span>
+            </Link>
+          ))}
         </div>
       </div>
     </section>
