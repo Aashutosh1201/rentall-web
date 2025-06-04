@@ -13,6 +13,7 @@ import ProductDetails from "./pages/ProductDetails";
 import Rent from "./pages/Rent";
 import Cart from "./pages/Cart";
 import PaymentCallback from "./components/PaymentCallback";
+import RentalHistory from "./pages/RentalHistory";
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
@@ -81,6 +82,7 @@ function App() {
               </PublicLayout>
             }
           />
+          <Route path="/rentals" element={<RentalHistory />} />
 
           <Route path="/payment/callback" element={<PaymentCallback />} />
 

@@ -3,9 +3,7 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/authMiddleware");
 const axios = require("axios");
-
-// You'll need to import your Rental model
-// const Rental = require("../models/Rental");
+const Rental = require("../models/Rental");
 
 // Khalti payment initiation endpoint
 router.post("/khalti/initiate", auth, async (req, res) => {
@@ -69,9 +67,6 @@ router.post("/khalti/initiate", auth, async (req, res) => {
     );
 
     if (khaltiResponse.data && khaltiResponse.data.payment_url) {
-      // Store payment details in database for tracking
-      // You might want to create a Payment model for this
-
       res.json({
         success: true,
         payment_url: khaltiResponse.data.payment_url,
@@ -128,24 +123,29 @@ router.post("/khalti/verify", auth, async (req, res) => {
 
         if (rentalData) {
           // Create rental record after successful payment
-          /* 
           const rental = new Rental({
-            userId: merchantExtra.user_id,
+            userId: req.user.id,
             productId: rentalData.productId,
             rentalDays: rentalData.rentalDays,
-            startDate: rentalData.startDate,
-            endDate: rentalData.endDate,
+            startDate: new Date(rentalData.startDate),
+            endDate: new Date(rentalData.endDate),
             totalAmount: rentalData.totalAmount,
-            status: 'confirmed',
+            status: "active", // Set to active after successful payment
+            paymentMethod: "khalti",
             paymentId: pidx,
-            transactionId: paymentData.transaction_id
+            transactionId: paymentData.transaction_id,
+            purchaseOrderId: paymentData.purchase_order_id,
+            paymentStatus: "completed",
           });
-          
+
           await rental.save();
-          */
+          console.log("Rental created successfully:", rental._id);
         }
       } catch (parseError) {
-        console.error("Error parsing merchant_extra:", parseError);
+        console.error(
+          "Error parsing merchant_extra or creating rental:",
+          parseError
+        );
       }
 
       res.json({
@@ -203,42 +203,52 @@ router.get("/khalti/callback", async (req, res) => {
           const rentalData = merchantExtra.rental_data;
 
           if (rentalData) {
-            // Create rental record after successful payment
-            /*
-            const rental = new Rental({
-              userId: merchantExtra.user_id,
-              productId: rentalData.productId,
-              rentalDays: rentalData.rentalDays,
-              startDate: rentalData.startDate,
-              endDate: rentalData.endDate,
-              totalAmount: rentalData.totalAmount,
-              status: 'confirmed',
+            // Check if rental already exists to avoid duplicates
+            const existingRental = await Rental.findOne({
               paymentId: pidx,
-              transactionId: paymentData.transaction_id
             });
-            
-            await rental.save();
-            */
+
+            if (!existingRental) {
+              const rental = new Rental({
+                userId: merchantExtra.user_id,
+                productId: rentalData.productId,
+                rentalDays: rentalData.rentalDays,
+                startDate: new Date(rentalData.startDate),
+                endDate: new Date(rentalData.endDate),
+                totalAmount: rentalData.totalAmount,
+                status: "active",
+                paymentMethod: "khalti",
+                paymentId: pidx,
+                transactionId: paymentData.transaction_id,
+                purchaseOrderId: paymentData.purchase_order_id,
+                paymentStatus: "completed",
+              });
+
+              await rental.save();
+              console.log("Rental created from callback:", rental._id);
+            }
           }
         } catch (parseError) {
-          console.error("Error creating rental:", parseError);
+          console.error("Error creating rental from callback:", parseError);
         }
 
-        // Redirect to success page
+        // Redirect to success page - this will be handled by React Router
         res.redirect(
-          `/payment/success?transaction_id=${transaction_id}&amount=${amount}`
+          `/payment/callback?pidx=${pidx}&status=Completed&transaction_id=${transaction_id}&amount=${amount}`
         );
       } else {
-        res.redirect(`/payment/failed?reason=verification_failed`);
+        res.redirect(
+          `/payment/callback?status=failed&reason=verification_failed`
+        );
       }
     } else if (status === "User canceled") {
-      res.redirect(`/payment/canceled`);
+      res.redirect(`/payment/callback?status=User%20canceled`);
     } else {
-      res.redirect(`/payment/failed?reason=${status}`);
+      res.redirect(`/payment/callback?status=failed&reason=${status}`);
     }
   } catch (error) {
     console.error("Payment callback error:", error);
-    res.redirect(`/payment/failed?reason=callback_error`);
+    res.redirect(`/payment/callback?status=failed&reason=callback_error`);
   }
 });
 

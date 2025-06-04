@@ -42,7 +42,7 @@ export default function PaymentCallback() {
 
             // Redirect to rentals page after 3 seconds
             setTimeout(() => {
-              navigate("/my-rentals");
+              navigate("/rentals");
             }, 3000);
           } else {
             setStatus("error");

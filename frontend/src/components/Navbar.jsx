@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const Navbar = () => {
@@ -24,6 +25,9 @@ const Navbar = () => {
             <Link to="/categories" className="hover:text-blue-600 transition">
               Categories
             </Link>
+          </li>
+          <li>
+            <NavLink to="/rentals">My Rentals</NavLink>
           </li>
           <li>
             <Link to="/how-it-works" className="hover:text-blue-600 transition">
