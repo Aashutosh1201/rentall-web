@@ -7,13 +7,14 @@ export default function Rent() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, getToken } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rentalDays, setRentalDays] = useState(1);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
   const isCartAction = searchParams.get("action") === "cart";
 
   useEffect(() => {
@@ -47,6 +48,78 @@ export default function Rent() {
     return product.pricePerDay * rentalDays;
   };
 
+  const generateUniqueOrderId = () => {
+    return `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+
+  const initiateKhaltiPayment = async (rentalData) => {
+    try {
+      setPaymentProcessing(true);
+
+      const paymentPayload = {
+        return_url: `${window.location.origin}/payment/callback`,
+        website_url: window.location.origin,
+        amount: calculateTotal() * 100, // Convert to paisa (1 NPR = 100 paisa)
+        purchase_order_id: generateUniqueOrderId(),
+        purchase_order_name: `Rental: ${product.title}`,
+        customer_info: {
+          name: user.name || user.email.split("@")[0],
+          email: user.email,
+          phone: user.phone || "9800000000", // Default phone if not available
+        },
+        amount_breakdown: [
+          {
+            label: "Rental Cost",
+            amount: product.pricePerDay * rentalDays * 100,
+          },
+        ],
+        product_details: [
+          {
+            identity: product._id,
+            name: product.title,
+            total_price: calculateTotal() * 100,
+            quantity: 1,
+            unit_price: calculateTotal() * 100,
+          },
+        ],
+        merchant_username: "rental_platform",
+        merchant_extra: JSON.stringify({
+          rental_data: rentalData,
+          user_id: user.id,
+        }),
+      };
+
+      console.log("User object:", user);
+      console.log("Token being sent:", user.token);
+      console.log("Token type:", typeof user.token);
+      // Call your backend to initiate Khalti payment - FIXED URL
+      const response = await fetch(
+        "http://localhost:8000/api/payment/khalti/initiate",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.token}`,
+          },
+          body: JSON.stringify(paymentPayload),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.payment_url) {
+        // Redirect to Khalti payment page
+        window.location.href = data.payment_url;
+      } else {
+        throw new Error(data.message || "Failed to initiate payment");
+      }
+    } catch (err) {
+      setError("Failed to initiate payment: " + err.message);
+      console.error("Error initiating Khalti payment:", err);
+      setPaymentProcessing(false);
+    }
+  };
+
   const handleAddToCart = async () => {
     if (!startDate || !endDate) {
       setError("Please select both start and end dates");
@@ -58,7 +131,7 @@ export default function Rent() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${user.token}`,
+          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify({
           productId: id,
@@ -86,34 +159,17 @@ export default function Rent() {
       return;
     }
 
-    try {
-      const res = await fetch("http://localhost:8000/api/rentals", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${user.token}`,
-        },
-        body: JSON.stringify({
-          productId: id,
-          rentalDays,
-          startDate,
-          endDate,
-        }),
-      });
+    const rentalData = {
+      productId: id,
+      rentalDays,
+      startDate,
+      endDate,
+      totalAmount: calculateTotal(),
+    };
 
-      if (res.ok) {
-        const data = await res.json();
-        // Here you would typically redirect to a payment gateway
-        alert("Rental successful! Redirecting to payment...");
-        // navigate("/payment", { state: { rentalId: data.rentalId } });
-      } else {
-        const data = await res.json();
-        setError(data.message || "Failed to process rental");
-      }
-    } catch (err) {
-      setError("Failed to process rental");
-      console.error("Error processing rental:", err);
-    }
+    // FIXED: Go directly to payment without creating rental record first
+    // The rental will be created after successful payment verification
+    await initiateKhaltiPayment(rentalData);
   };
 
   if (loading) {
@@ -244,18 +300,60 @@ export default function Rent() {
                 ) : (
                   <button
                     onClick={handleRent}
-                    className="w-full bg-green-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-green-700 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
+                    disabled={paymentProcessing}
+                    className="w-full bg-purple-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-700 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                   >
-                    Proceed to Payment
+                    {paymentProcessing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                        <span>Processing Payment...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="w-5 h-5"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
+                        </svg>
+                        <span>Pay with Khalti</span>
+                      </>
+                    )}
                   </button>
                 )}
                 <button
                   onClick={() => navigate(-1)}
-                  className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
+                  disabled={paymentProcessing}
+                  className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
               </div>
+
+              {/* Khalti Info */}
+              {!isCartAction && (
+                <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <svg
+                      className="w-5 h-5 text-purple-600"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z" />
+                    </svg>
+                    <h3 className="font-semibold text-purple-800">
+                      Payment with Khalti
+                    </h3>
+                  </div>
+                  <p className="text-sm text-purple-700">
+                    You will be redirected to Khalti's secure payment gateway to
+                    complete your transaction. The rental will be confirmed
+                    after successful payment verification. Supported payment
+                    methods: Khalti wallet, Mobile banking, and more.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

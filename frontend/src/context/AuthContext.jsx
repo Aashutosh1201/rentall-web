@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem("token");
     if (token) {
       const decodedUser = validateToken(token);
-      setUser(decodedUser);
+      setUser({ ...decodedUser, token });
     }
     setLoading(false);
   }, []);
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
       const decodedUser = validateToken(token);
       if (decodedUser) {
         localStorage.setItem("token", token);
-        setUser(decodedUser);
+        setUser({ ...decodedUser, token });
         return true;
       }
       return false;
@@ -70,12 +70,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const getToken = () => {
+    return localStorage.getItem("token");
+  };
+
   const value = {
     user,
     loading,
     login,
     logout,
     isAuthenticated,
+    getToken,
   };
 
   return (

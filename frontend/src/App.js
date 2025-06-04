@@ -12,6 +12,7 @@ import KYCForm from "./pages/KYCForm";
 import ProductDetails from "./pages/ProductDetails";
 import Rent from "./pages/Rent";
 import Cart from "./pages/Cart";
+import PaymentCallback from "./components/PaymentCallback";
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
@@ -80,6 +81,8 @@ function App() {
               </PublicLayout>
             }
           />
+
+          <Route path="/payment/callback" element={<PaymentCallback />} />
 
           <Route
             path="/products"
