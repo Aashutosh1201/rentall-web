@@ -82,7 +82,16 @@ function App() {
               </PublicLayout>
             }
           />
-          <Route path="/rentals" element={<RentalHistory />} />
+          <Route
+            path="/rentals"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <RentalHistory />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
 
           <Route path="/payment/callback" element={<PaymentCallback />} />
 

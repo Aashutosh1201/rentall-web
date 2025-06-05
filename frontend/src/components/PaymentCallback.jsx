@@ -6,12 +6,28 @@ import { useAuth } from "../context/AuthContext";
 export default function PaymentCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [status, setStatus] = useState("processing");
   const [message, setMessage] = useState("Processing your payment...");
+  const [hasProcessed, setHasProcessed] = useState(false);
 
   useEffect(() => {
+    console.log("PaymentCallback state:", {
+      pidx: searchParams.get("pidx"),
+      paymentStatus: searchParams.get("status"),
+      user: user ? "authenticated" : "not authenticated",
+      loading,
+      hasProcessed,
+    });
+
+    // Wait for auth to be fully loaded and only process once
+    if (loading || hasProcessed) {
+      return; // Still loading auth or already processed
+    }
+
     const processPayment = async () => {
+      setHasProcessed(true); // Mark as processed immediately
+
       try {
         const pidx = searchParams.get("pidx");
         const paymentStatus = searchParams.get("status");
@@ -34,7 +50,8 @@ export default function PaymentCallback() {
         }
 
         if (paymentStatus === "Completed") {
-          // Verify payment with backend
+          console.log("Processing completed payment verification...");
+
           const response = await fetch("/api/payment/khalti/verify", {
             method: "POST",
             headers: {
@@ -44,43 +61,56 @@ export default function PaymentCallback() {
             body: JSON.stringify({ pidx }),
           });
 
+          console.log("Backend response status:", response.status);
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
           const data = await response.json();
+          console.log("Backend response data:", data);
 
           if (data.success && data.status === "completed") {
             setStatus("success");
             setMessage("Payment successful! Your rental has been confirmed.");
 
-            // Redirect to rentals page after 3 seconds
             setTimeout(() => {
               navigate("/rentals");
             }, 3000);
           } else {
             setStatus("error");
-            setMessage("Payment verification failed. Please contact support.");
+            setMessage(
+              data.message ||
+                "Payment verification failed. Please contact support."
+            );
           }
         } else if (paymentStatus === "User canceled") {
           setStatus("canceled");
           setMessage("Payment was canceled. You can try again.");
         } else {
+          console.log("Payment failed with status:", paymentStatus);
           setStatus("error");
-          setMessage(`Payment failed: ${paymentStatus}`);
+          setMessage(`Payment failed: ${paymentStatus || "Unknown error"}`);
         }
       } catch (error) {
         console.error("Payment processing error:", error);
         setStatus("error");
-        setMessage("An error occurred while processing your payment.");
+        setMessage(`Error processing payment: ${error.message}`);
       }
     };
 
-    // Only process payment if we have the necessary data
-    if (user !== undefined) {
-      // Wait for auth context to be initialized
+    // Process payment if we have the required parameters
+    if (searchParams.get("pidx")) {
       processPayment();
+    } else {
+      setStatus("error");
+      setMessage("No payment reference found");
+      setHasProcessed(true);
     }
-  }, [searchParams, user, navigate]);
+  }, [searchParams, user, loading, navigate, hasProcessed]);
 
   // Show loading while auth context is initializing
-  if (user === undefined) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-blue-50 rounded-lg shadow-lg p-8 text-center">
