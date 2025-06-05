@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth(); // Get authLoading
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,6 +31,9 @@ export default function ProductDetails() {
   }, [id]);
 
   const handleAddToCartClick = () => {
+    // Wait for auth to load before checking user
+    if (authLoading) return;
+
     if (!user) {
       localStorage.setItem("redirectAfterLogin", `/rent/${id}?action=cart`);
       navigate("/login");
@@ -40,6 +43,9 @@ export default function ProductDetails() {
   };
 
   const handleRentClick = () => {
+    // Wait for auth to load before checking user
+    if (authLoading) return;
+
     if (!user) {
       // Store the current URL to redirect back after login
       localStorage.setItem("redirectAfterLogin", `/rent/${id}`);
@@ -49,7 +55,8 @@ export default function ProductDetails() {
     }
   };
 
-  if (loading)
+  // Show loading if either product or auth is loading
+  if (loading || authLoading)
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -108,11 +115,11 @@ export default function ProductDetails() {
                       {typeof product.location === "string"
                         ? product.location
                         : Array.isArray(product.location)
-                        ? product.location.join(", ")
-                        : typeof product.location === "object" &&
-                          product.location.lat
-                        ? `${product.location.lat}, ${product.location.lng}`
-                        : "Not specified"}
+                          ? product.location.join(", ")
+                          : typeof product.location === "object" &&
+                              product.location.lat
+                            ? `${product.location.lat}, ${product.location.lng}`
+                            : "Not specified"}
                     </p>
                   </div>
                 </div>
@@ -143,16 +150,18 @@ export default function ProductDetails() {
                 <div className="mt-8 space-y-4">
                   <button
                     onClick={handleRentClick}
-                    className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                    disabled={authLoading}
+                    className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Rent Now
+                    {authLoading ? "Loading..." : "Rent Now"}
                   </button>
                   {/* Add to cart button */}
                   <button
                     onClick={handleAddToCartClick}
-                    className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
+                    disabled={authLoading}
+                    className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Add to Cart
+                    {authLoading ? "Loading..." : "Add to Cart"}
                   </button>
                 </div>
               </div>

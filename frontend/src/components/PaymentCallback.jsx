@@ -23,6 +23,16 @@ export default function PaymentCallback() {
           return;
         }
 
+        // Check if user is authenticated
+        if (!user || !user.token) {
+          setStatus("error");
+          setMessage("Authentication required. Please log in again.");
+          setTimeout(() => {
+            navigate("/login");
+          }, 3000);
+          return;
+        }
+
         if (paymentStatus === "Completed") {
           // Verify payment with backend
           const response = await fetch("/api/payment/khalti/verify", {
@@ -62,8 +72,27 @@ export default function PaymentCallback() {
       }
     };
 
-    processPayment();
-  }, [searchParams, user.token, navigate]);
+    // Only process payment if we have the necessary data
+    if (user !== undefined) {
+      // Wait for auth context to be initialized
+      processPayment();
+    }
+  }, [searchParams, user, navigate]);
+
+  // Show loading while auth context is initializing
+  if (user === undefined) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-blue-50 rounded-lg shadow-lg p-8 text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+          </div>
+          <h2 className="text-2xl font-bold text-blue-800 mb-4">Loading...</h2>
+          <p className="text-blue-800">Initializing payment verification...</p>
+        </div>
+      </div>
+    );
+  }
 
   const getStatusIcon = () => {
     switch (status) {

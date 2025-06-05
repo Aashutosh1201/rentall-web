@@ -31,7 +31,13 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem("token");
     if (token) {
       const decodedUser = validateToken(token);
-      setUser({ ...decodedUser, token });
+      if (decodedUser) {
+        setUser({ ...decodedUser, token });
+      } else {
+        setUser(null); // Explicitly set to null if token is invalid
+      }
+    } else {
+      setUser(null); // Explicitly set to null if no token
     }
     setLoading(false);
   }, []);
@@ -85,7 +91,8 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}{" "}
+      {/* Always render children, let components handle loading state */}
     </AuthContext.Provider>
   );
 };

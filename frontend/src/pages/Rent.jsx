@@ -22,7 +22,6 @@ export default function Rent() {
       navigate("/login");
       return;
     }
-
     const fetchProduct = async () => {
       try {
         const res = await fetch(`http://localhost:8000/api/products/${id}`);
@@ -43,6 +42,27 @@ export default function Rent() {
     fetchProduct();
   }, [id, user, navigate]);
 
+  useEffect(() => {
+    if (startDate && rentalDays) {
+      const start = new Date(startDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + rentalDays - 1);
+      setEndDate(end.toISOString().split("T")[0]);
+    }
+  }, [startDate, rentalDays]);
+
+  useEffect(() => {
+    if (endDate && startDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = end - start;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      if (diffDays !== rentalDays && diffDays > 0) {
+        setRentalDays(diffDays);
+      }
+    }
+  }, [startDate, endDate]);
+
   const calculateTotal = () => {
     if (!product) return 0;
     return product.pricePerDay * rentalDays;
@@ -52,20 +72,37 @@ export default function Rent() {
     return `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
+  const handleRentalDaysChange = (days) => {
+    setRentalDays(days);
+    if (startDate) {
+      const start = new Date(startDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + days - 1);
+      setEndDate(end.toISOString().split("T")[0]);
+    }
+  };
+
   const initiateKhaltiPayment = async (rentalData) => {
     try {
       setPaymentProcessing(true);
+      setError(""); // Clear previous errors
+
+      console.log("=== PAYMENT DEBUG INFO ===");
+      console.log("Rental data:", rentalData);
+      console.log("Product:", product);
+      console.log("User:", user);
+      console.log("Token:", getToken());
 
       const paymentPayload = {
         return_url: `${window.location.origin}/payment/callback`,
         website_url: window.location.origin,
-        amount: calculateTotal() * 100, // Convert to paisa (1 NPR = 100 paisa)
+        amount: calculateTotal() * 100,
         purchase_order_id: generateUniqueOrderId(),
         purchase_order_name: `Rental: ${product.title}`,
         customer_info: {
           name: user.name || user.email.split("@")[0],
           email: user.email,
-          phone: user.phone || "9800000000", // Default phone if not available
+          phone: user.phone || "9800000000",
         },
         amount_breakdown: [
           {
@@ -84,38 +121,92 @@ export default function Rent() {
         ],
         merchant_username: "rental_platform",
         merchant_extra: JSON.stringify({
-          rental_data: rentalData,
-          user_id: user.id,
+          rental_data: {
+            productId: rentalData.productId,
+            rentalDays: rentalData.rentalDays,
+            startDate: rentalData.startDate,
+            endDate: rentalData.endDate,
+            notes: `Rental for ${product.title} from ${startDate} to ${endDate}`,
+          },
         }),
       };
 
-      console.log("User object:", user);
-      console.log("Token being sent:", user.token);
-      console.log("Token type:", typeof user.token);
-      // Call your backend to initiate Khalti payment - FIXED URL
+      console.log("Payment payload:", paymentPayload);
+
+      const token = getToken();
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      console.log(
+        "Making request to:",
+        "http://localhost:8000/api/payment/khalti/initiate"
+      );
+
       const response = await fetch(
         "http://localhost:8000/api/payment/khalti/initiate",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(paymentPayload),
         }
       );
 
-      const data = await response.json();
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
 
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error("Failed to parse response as JSON:", parseError);
+        const text = await response.text();
+        console.log("Response text:", text);
+        throw new Error(`Server returned ${response.status}: ${text}`);
+      }
+
+      console.log("Response data:", data);
+
+      // Fix: Check response status properly
       if (response.ok && data.payment_url) {
-        // Redirect to Khalti payment page
+        sessionStorage.setItem(
+          "pendingRental",
+          JSON.stringify({
+            productId: rentalData.productId,
+            productTitle: product.title,
+            rentalDays: rentalData.rentalDays,
+            startDate: rentalData.startDate,
+            endDate: rentalData.endDate,
+            totalAmount: rentalData.totalAmount,
+            pidx: data.pidx,
+          })
+        );
+
         window.location.href = data.payment_url;
       } else {
-        throw new Error(data.message || "Failed to initiate payment");
+        // Handle different error status codes
+        let errorMessage = data.message || `Server returned ${response.status}`;
+
+        if (response.status === 404) {
+          errorMessage =
+            "Payment endpoint not found. Please check server configuration.";
+        } else if (response.status === 500) {
+          errorMessage = "Internal server error. Please try again later.";
+        }
+
+        throw new Error(errorMessage);
       }
     } catch (err) {
+      console.error("=== PAYMENT ERROR ===");
+      console.error("Error details:", err);
+      console.error("Error message:", err.message);
+      console.error("Error stack:", err.stack);
+
+      // Fix: Don't throw another error, just set the error state
       setError("Failed to initiate payment: " + err.message);
-      console.error("Error initiating Khalti payment:", err);
       setPaymentProcessing(false);
     }
   };
@@ -154,8 +245,26 @@ export default function Rent() {
   };
 
   const handleRent = async () => {
+    setError("");
+
     if (!startDate || !endDate) {
       setError("Please select both start and end dates");
+      return;
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    if (startDate < today) {
+      setError("Start date cannot be in the past");
+      return;
+    }
+
+    if (endDate < startDate) {
+      setError("End date must be after start date");
+      return;
+    }
+
+    if (rentalDays < 1) {
+      setError("Rental must be for at least 1 day");
       return;
     }
 
@@ -167,8 +276,6 @@ export default function Rent() {
       totalAmount: calculateTotal(),
     };
 
-    // FIXED: Go directly to payment without creating rental record first
-    // The rental will be created after successful payment verification
     await initiateKhaltiPayment(rentalData);
   };
 
@@ -246,7 +353,9 @@ export default function Rent() {
                     type="number"
                     min="1"
                     value={rentalDays}
-                    onChange={(e) => setRentalDays(parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleRentalDaysChange(parseInt(e.target.value) || 1)
+                    }
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
