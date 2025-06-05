@@ -1,4 +1,4 @@
-// routes/rentals.js
+// routes/rental.js
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/authMiddleware");
@@ -9,8 +9,8 @@ router.get("/", auth, async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
 
-    // Build query
-    const query = { userId: req.user.id };
+    // Build query - Fixed: using userId instead of id
+    const query = { userId: req.user.userId };
     if (status && status !== "all") {
       query.status = status;
     }
@@ -73,7 +73,7 @@ router.get("/:id", auth, async (req, res) => {
   try {
     const rental = await Rental.findOne({
       _id: req.params.id,
-      userId: req.user.id,
+      userId: req.user.userId, // Fixed: using userId instead of id
     }).populate("productId", "title description imageUrl pricePerDay category");
 
     if (!rental) {
@@ -146,7 +146,7 @@ router.patch("/:id/status", auth, async (req, res) => {
     }
 
     const rental = await Rental.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
+      { _id: req.params.id, userId: req.user.userId }, // Fixed: using userId instead of id
       updateData,
       { new: true }
     ).populate("productId", "title description imageUrl pricePerDay category");
@@ -194,7 +194,7 @@ router.patch("/:id/status", auth, async (req, res) => {
 // Get rental statistics for the user
 router.get("/stats/summary", auth, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId; // Fixed: using userId instead of id
 
     const stats = await Promise.all([
       Rental.countDocuments({ userId, status: "active" }),
@@ -202,7 +202,7 @@ router.get("/stats/summary", auth, async (req, res) => {
       Rental.countDocuments({ userId, status: "overdue" }),
       Rental.countDocuments({ userId }),
       Rental.aggregate([
-        { $match: { userId: req.user.id } },
+        { $match: { userId: req.user.userId } }, // Fixed: using userId instead of id
         { $group: { _id: null, totalSpent: { $sum: "$totalAmount" } } },
       ]),
     ]);
