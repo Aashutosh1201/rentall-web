@@ -28,15 +28,12 @@ const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const DashboardHome = lazy(() => import("./pages/Dashboard/DashboardHome"));
-const MyProducts = lazy(() => import("./pages/Dashboard/MyProducts"));
-const MyOrders = lazy(() => import("./pages/Dashboard/MyOrders"));
-const Profile = lazy(() => import("./pages/Dashboard/Profile"));
-const CategoriesPage = lazy(() => import("./pages/Categories"));
-const HowItWorksPage = lazy(() => import("./components/HowItWorks"));
 const CategoryProducts = lazy(() => import("./pages/CategoryProducts"));
 
+// Dashboard component (your new combined dashboard)
+const Dashboard = lazy(() => import("./pages/Dashboard/Dashboard"));
+
+// Layout Components
 const PublicLayout = ({ children }) => (
   <div className="flex flex-col min-h-screen">
     <Navbar />
@@ -49,12 +46,13 @@ const PublicLayout = ({ children }) => (
 
 const DashboardLayout = ({ children }) => (
   <PrivateRoute>
-    <Dashboard>
+    <div className="min-h-screen bg-gray-50">
       <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
-    </Dashboard>
+    </div>
   </PrivateRoute>
 );
 
+// Home page component
 const Home = () => (
   <>
     <Hero />
@@ -66,6 +64,24 @@ const Home = () => (
     <FaqSection />
     <CTASection />
   </>
+);
+
+// 404 Component
+const NotFound = () => (
+  <PublicLayout>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-6xl font-bold text-gray-900 mb-4">404</h1>
+        <p className="text-xl text-gray-600 mb-8">Page Not Found</p>
+        <a
+          href="/"
+          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Go Home
+        </a>
+      </div>
+    </div>
+  </PublicLayout>
 );
 
 function App() {
@@ -82,6 +98,146 @@ function App() {
               </PublicLayout>
             }
           />
+
+          <Route
+            path="/products"
+            element={
+              <PublicLayout>
+                <ProductList />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/product/:id"
+            element={
+              <PublicLayout>
+                <ProductDetails />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/categories"
+            element={
+              <PublicLayout>
+                <Categories />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/categories/:category"
+            element={
+              <PublicLayout>
+                <CategoryProducts />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/how-it-works"
+            element={
+              <PublicLayout>
+                <HowItWorks />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/create"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <CreateProduct />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
+
+          {/* Authentication routes */}
+          <Route
+            path="/login"
+            element={
+              <PublicLayout>
+                <Login />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/register"
+            element={
+              <PublicLayout>
+                <Register redirectTo="/kyc-info" />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/forgot-password"
+            element={
+              <PublicLayout>
+                <ForgotPassword />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/reset-password/:token"
+            element={
+              <PublicLayout>
+                <ResetPassword />
+              </PublicLayout>
+            }
+          />
+
+          {/* KYC routes */}
+          <Route
+            path="/kyc-info"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <KYCInfo />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/kyc-form"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <KYCForm />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
+
+          {/* Protected routes */}
+          <Route
+            path="/rent/:id"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <Rent />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/cart"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <Cart />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
+
           <Route
             path="/rentals"
             element={
@@ -93,146 +249,21 @@ function App() {
             }
           />
 
+          {/* Dashboard route - simplified since you have a combined component */}
+          <Route
+            path="/dashboard/*"
+            element={
+              <DashboardLayout>
+                <Dashboard />
+              </DashboardLayout>
+            }
+          />
+
+          {/* Payment callback (no layout needed) */}
           <Route path="/payment/callback" element={<PaymentCallback />} />
 
-          <Route
-            path="/products"
-            element={
-              <PublicLayout>
-                <ProductList />
-              </PublicLayout>
-            }
-          />
-          <Route
-            path="/product/:id"
-            element={
-              <PublicLayout>
-                <ProductDetails />
-              </PublicLayout>
-            }
-          />
-          <Route
-            path="/categories"
-            element={
-              <PublicLayout>
-                <CategoriesPage />
-              </PublicLayout>
-            }
-          />
-          <Route
-            path="/categories/:category"
-            element={
-              <PublicLayout>
-                <CategoryProducts />
-              </PublicLayout>
-            }
-          />
-          <Route
-            path="/how-it-works"
-            element={
-              <PublicLayout>
-                <HowItWorksPage />
-              </PublicLayout>
-            }
-          />
-          <Route
-            path="/create"
-            element={
-              <PublicLayout>
-                <CreateProduct />
-              </PublicLayout>
-            }
-          />
-          <Route
-            path="/login"
-            element={
-              <PublicLayout>
-                <Login />
-              </PublicLayout>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicLayout>
-                <Register redirectTo="/kyc-info" />
-              </PublicLayout>
-            }
-          />
-          <Route
-            path="/kyc-info"
-            element={
-              <PublicLayout>
-                <KYCInfo />
-              </PublicLayout>
-            }
-          />
-          <Route
-            path="/kyc-form"
-            element={
-              <PublicLayout>
-                <KYCForm />
-              </PublicLayout>
-            }
-          />
-          <Route
-            path="/forgot-password"
-            element={
-              <PublicLayout>
-                <ForgotPassword />
-              </PublicLayout>
-            }
-          />
-          <Route
-            path="/rent/:id"
-            element={
-              <PrivateRoute>
-                <PublicLayout>
-                  <Rent />
-                </PublicLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/reset-password/:token"
-            element={
-              <PublicLayout>
-                <ResetPassword />
-              </PublicLayout>
-            }
-          />
-
-          {/* Protected routes */}
-          <Route
-            path="/cart"
-            element={
-              <PrivateRoute>
-                <PublicLayout>
-                  <Cart />
-                </PublicLayout>
-              </PrivateRoute>
-            }
-          />
-
-          {/* Dashboard routes (protected) */}
-          <Route path="/dashboard" element={<DashboardLayout />}>
-            <Route index element={<DashboardHome />} />
-            <Route path="products" element={<MyProducts />} />
-            <Route path="orders" element={<MyOrders />} />
-            <Route path="profile" element={<Profile />} />
-          </Route>
-
           {/* 404 Page */}
-          <Route
-            path="*"
-            element={
-              <PublicLayout>
-                <div className="min-h-screen flex items-center justify-center">
-                  <h1 className="text-4xl font-bold">404 - Page Not Found</h1>
-                </div>
-              </PublicLayout>
-            }
-          />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </ErrorBoundary>
     </Router>
