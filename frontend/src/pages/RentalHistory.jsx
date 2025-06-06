@@ -104,6 +104,13 @@ export default function RentalHistory() {
         console.log("Rentals array:", rentalsArray);
         console.log("Rentals count:", rentalsArray.length);
 
+        // Log the first rental to see its structure
+        if (rentalsArray.length > 0) {
+          console.log("First rental structure:", rentalsArray[0]);
+          console.log("Product data:", rentalsArray[0].product);
+          console.log("Product ID:", rentalsArray[0].productId);
+        }
+
         setRentals(rentalsArray);
 
         // Calculate stats
@@ -210,6 +217,62 @@ export default function RentalHistory() {
     }
   };
 
+  // Helper function to get product info - handles different data structures
+  const getProductInfo = (rental) => {
+    // Check if product is populated
+    if (rental.product && typeof rental.product === "object") {
+      return {
+        title: rental.product.title || rental.product.name || "Unknown Product",
+        description: rental.product.description || "No description available",
+        imageUrl: rental.product.imageUrl || rental.product.image || null,
+      };
+    }
+
+    // Check if we have product info directly in rental
+    if (rental.productTitle || rental.productName) {
+      return {
+        title: rental.productTitle || rental.productName || "Unknown Product",
+        description: rental.productDescription || "No description available",
+        imageUrl: rental.productImage || rental.imageUrl || null,
+      };
+    }
+
+    // Fallback
+    return {
+      title: `Product ${rental.productId || "Unknown"}`,
+      description: "Product details not available",
+      imageUrl: null,
+    };
+  };
+
+  // Helper function to get payment status
+  const getPaymentStatus = (rental) => {
+    if (rental.paymentStatus) {
+      return rental.paymentStatus;
+    }
+    if (rental.payment && rental.payment.status) {
+      return rental.payment.status;
+    }
+    if (rental.paid === true) {
+      return "paid";
+    }
+    if (rental.paid === false) {
+      return "pending";
+    }
+    return "unknown";
+  };
+
+  // Helper function to get payment method
+  const getPaymentMethod = (rental) => {
+    if (rental.paymentMethod) {
+      return rental.paymentMethod;
+    }
+    if (rental.payment && rental.payment.method) {
+      return rental.payment.method;
+    }
+    return "N/A";
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -255,7 +318,7 @@ export default function RentalHistory() {
             Manage your rental history and active rentals
           </p>
 
-          {/* Debug Info - Remove this in production */}
+          {/* Debug Info - Enhanced for better debugging */}
           <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
             <p>
               <strong>Debug Info:</strong>
@@ -271,6 +334,16 @@ export default function RentalHistory() {
                 ? `${getApiUrl()}/api/rentals`
                 : `${getApiUrl()}/api/rentals?status=${filter}`}
             </p>
+            {rentals.length > 0 && (
+              <div className="mt-2 p-2 bg-gray-100 rounded">
+                <p>
+                  <strong>Sample rental data:</strong>
+                </p>
+                <pre className="text-xs overflow-auto max-h-32">
+                  {JSON.stringify(rentals[0], null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
         </div>
 
@@ -342,94 +415,125 @@ export default function RentalHistory() {
           </div>
         ) : (
           <div className="space-y-4">
-            {rentals.map((rental) => (
-              <div
-                key={rental._id || rental.id}
-                className="bg-white rounded-lg shadow p-6"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-4 flex-1">
-                    {/* Updated image handling using the ImageWithFallback component */}
-                    <ImageWithFallback
-                      src={
-                        rental.product?.imageUrl
-                          ? `${getApiUrl()}${rental.product.imageUrl}`
-                          : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K"
-                      }
-                      alt={rental.product?.title || "Product"}
-                      className="w-16 h-16 object-cover rounded-lg"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold text-gray-900 mb-1">
-                            {rental.product?.title || "Unknown Product"}
-                          </h3>
-                          <p className="text-sm text-gray-600 mb-2">
-                            {rental.product?.description || "No description"}
-                          </p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span>
-                              {formatDate(rental.startDate)} -{" "}
-                              {formatDate(rental.endDate)}
-                            </span>
-                            <span>{rental.rentalDays || 0} days</span>
-                            <span>Rs. {rental.totalAmount || 0}</span>
+            {rentals.map((rental) => {
+              const productInfo = getProductInfo(rental);
+              const paymentStatus = getPaymentStatus(rental);
+              const paymentMethod = getPaymentMethod(rental);
+
+              return (
+                <div
+                  key={rental._id || rental.id}
+                  className="bg-white rounded-lg shadow p-6"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-4 flex-1">
+                      {/* Updated image handling */}
+                      <ImageWithFallback
+                        src={
+                          productInfo.imageUrl
+                            ? productInfo.imageUrl.startsWith("http")
+                              ? productInfo.imageUrl
+                              : `${getApiUrl()}${productInfo.imageUrl}`
+                            : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K"
+                        }
+                        alt={productInfo.title}
+                        className="w-16 h-16 object-cover rounded-lg"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-semibold text-gray-900 mb-1">
+                              {productInfo.title}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-2">
+                              {productInfo.description}
+                            </p>
+                            <div className="flex items-center space-x-4 text-sm text-gray-500">
+                              <span>
+                                {formatDate(rental.startDate)} -{" "}
+                                {formatDate(rental.endDate)}
+                              </span>
+                              <span>
+                                {rental.rentalDays || rental.duration || 0} days
+                              </span>
+                              <span>
+                                Rs.{" "}
+                                {rental.totalAmount ||
+                                  rental.total ||
+                                  rental.amount ||
+                                  0}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {getStatusBadge(rental)}
+                            {rental.daysRemaining !== undefined &&
+                              rental.status === "active" && (
+                                <p
+                                  className={`text-xs mt-1 ${rental.isOverdue ? "text-red-600" : "text-gray-500"}`}
+                                >
+                                  {rental.isOverdue
+                                    ? `${Math.abs(rental.daysRemaining)} days overdue`
+                                    : `${rental.daysRemaining} days left`}
+                                </p>
+                              )}
                           </div>
                         </div>
-                        <div className="text-right">
-                          {getStatusBadge(rental)}
-                          {rental.daysRemaining !== undefined &&
-                            rental.status === "active" && (
-                              <p
-                                className={`text-xs mt-1 ${rental.isOverdue ? "text-red-600" : "text-gray-500"}`}
-                              >
-                                {rental.isOverdue
-                                  ? `${Math.abs(rental.daysRemaining)} days overdue`
-                                  : `${rental.daysRemaining} days left`}
-                              </p>
-                            )}
-                        </div>
-                      </div>
 
-                      <div className="flex justify-between items-center mt-4">
-                        <div className="text-xs text-gray-500">
-                          <span>
-                            Payment:{" "}
-                            {rental.paymentMethod?.toUpperCase() || "N/A"}
-                          </span>
-                          <span className="mx-2">•</span>
-                          <span>Order: {rental.purchaseOrderId || "N/A"}</span>
-                        </div>
-                        <div className="space-x-2">
-                          {rental.status === "active" && (
+                        <div className="flex justify-between items-center mt-4">
+                          <div className="text-xs text-gray-500">
+                            <span>Payment: {paymentMethod.toUpperCase()}</span>
+                            <span className="mx-2">•</span>
+                            <span
+                              className={`px-2 py-1 rounded text-xs ${
+                                paymentStatus === "paid"
+                                  ? "bg-green-100 text-green-800"
+                                  : paymentStatus === "pending"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {paymentStatus.toUpperCase()}
+                            </span>
+                            <span className="mx-2">•</span>
+                            <span>
+                              Order:{" "}
+                              {rental.purchaseOrderId ||
+                                rental.orderId ||
+                                rental._id?.slice(-8) ||
+                                "N/A"}
+                            </span>
+                          </div>
+                          <div className="space-x-2">
+                            {rental.status === "active" && (
+                              <button
+                                onClick={() =>
+                                  updateRentalStatus(
+                                    rental._id || rental.id,
+                                    "returned"
+                                  )
+                                }
+                                className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                              >
+                                Mark Returned
+                              </button>
+                            )}
                             <button
                               onClick={() =>
-                                updateRentalStatus(
-                                  rental._id || rental.id,
-                                  "returned"
-                                )
+                                navigate(`/rentals/${rental._id || rental.id}`)
                               }
-                              className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                              className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200"
                             >
-                              Mark Returned
+                              Details
                             </button>
-                          )}
-                          <button
-                            onClick={() =>
-                              navigate(`/rentals/${rental._id || rental.id}`)
-                            }
-                            className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200"
-                          >
-                            Details
-                          </button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -168,12 +168,7 @@ router.get("/", verifyToken, async (req, res) => {
     const userId = req.user?.userId || req.user?.id;
     console.log("Fetching rentals for userId:", userId);
 
-    // First, let's get rentals without population to see raw data
-    const rawRentals = await Rental.find({ userId });
-    console.log("Raw rentals found:", rawRentals.length);
-    console.log("First raw rental:", rawRentals[0]);
-
-    // Now get with population
+    // Get rentals with product population
     const rentals = await Rental.find({ userId })
       .populate({
         path: "productId",
@@ -184,22 +179,9 @@ router.get("/", verifyToken, async (req, res) => {
       .sort({ createdAt: -1 });
 
     console.log("Populated rentals found:", rentals.length);
-    console.log("First populated rental:", rentals[0]);
 
-    // Log each rental's product data
-    rentals.forEach((rental, index) => {
-      console.log(`Rental ${index + 1}:`);
-      console.log("- Rental ID:", rental._id);
-      console.log("- Product ID:", rental.productId);
-      console.log("- Product populated:", !!rental.productId?.title);
-      if (rental.productId) {
-        console.log("- Product title:", rental.productId.title);
-        console.log("- Product imageUrl:", rental.productId.imageUrl);
-      }
-    });
-
-    // Add computed fields
-    const rentalsWithStatus = rentals.map((rental) => {
+    // Transform the data to match frontend expectations
+    const transformedRentals = rentals.map((rental) => {
       const now = new Date();
       const endDate = new Date(rental.endDate);
       const isOverdue = now > endDate && rental.status === "active";
@@ -208,16 +190,30 @@ router.get("/", verifyToken, async (req, res) => {
           ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24))
           : 0;
 
-      return {
-        ...rental.toObject(),
+      // Convert to plain object and transform productId to product
+      const rentalObj = rental.toObject();
+
+      // Move productId data to product field for frontend compatibility
+      const transformedRental = {
+        ...rentalObj,
+        product: rentalObj.productId, // This is the key fix!
         isOverdue,
         daysRemaining,
+        // Keep original productId as reference if needed
+        productId: rentalObj.productId?._id || rentalObj.productId,
       };
+
+      console.log(`Rental ${rental._id}:`);
+      console.log("- Product populated:", !!transformedRental.product?.title);
+      console.log("- Product title:", transformedRental.product?.title);
+      console.log("- Product imageUrl:", transformedRental.product?.imageUrl);
+
+      return transformedRental;
     });
 
     res.json({
       success: true,
-      rentals: rentalsWithStatus,
+      rentals: transformedRentals,
     });
   } catch (error) {
     console.error("Error fetching rentals:", error);
@@ -237,10 +233,10 @@ router.get("/:rentalId", verifyToken, async (req, res) => {
     const rental = await Rental.findOne({
       _id: req.params.rentalId,
       userId: userId,
-    }).populate(
-      "productId",
-      "title description imageUrl pricePerDay category location owner"
-    );
+    }).populate({
+      path: "productId",
+      select: "title description imageUrl pricePerDay category location owner",
+    });
 
     if (!rental) {
       return res.status(404).json({
@@ -249,9 +245,17 @@ router.get("/:rentalId", verifyToken, async (req, res) => {
       });
     }
 
+    // Transform for frontend compatibility
+    const rentalObj = rental.toObject();
+    const transformedRental = {
+      ...rentalObj,
+      product: rentalObj.productId,
+      productId: rentalObj.productId?._id || rentalObj.productId,
+    };
+
     res.json({
       success: true,
-      rental,
+      rental: transformedRental,
     });
   } catch (error) {
     console.error("Error fetching rental:", error);
@@ -273,10 +277,10 @@ router.patch("/:rentalId/status", verifyToken, async (req, res) => {
       { _id: req.params.rentalId, userId: userId },
       { status },
       { new: true }
-    ).populate(
-      "productId",
-      "title description imageUrl pricePerDay category location owner"
-    );
+    ).populate({
+      path: "productId",
+      select: "title description imageUrl pricePerDay category location owner",
+    });
 
     if (!rental) {
       return res.status(404).json({
@@ -285,15 +289,86 @@ router.patch("/:rentalId/status", verifyToken, async (req, res) => {
       });
     }
 
+    // Transform for frontend compatibility
+    const rentalObj = rental.toObject();
+    const transformedRental = {
+      ...rentalObj,
+      product: rentalObj.productId,
+      productId: rentalObj.productId?._id || rentalObj.productId,
+    };
+
     res.json({
       success: true,
-      rental,
+      rental: transformedRental,
     });
   } catch (error) {
     console.error("Error updating rental:", error);
     res.status(500).json({
       success: false,
       message: "Failed to update rental",
+      error: error.message,
+    });
+  }
+});
+
+// Get rentals with filtering by status
+router.get("/status/:status", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+    const { status } = req.params;
+
+    let query = { userId };
+
+    // Add status filter if not 'all'
+    if (status !== "all") {
+      if (status === "overdue") {
+        // For overdue, we need to check dates
+        query.status = "active";
+        query.endDate = { $lt: new Date() };
+      } else {
+        query.status = status;
+      }
+    }
+
+    const rentals = await Rental.find(query)
+      .populate({
+        path: "productId",
+        select:
+          "title description imageUrl pricePerDay category location owner",
+        options: { strictPopulate: false },
+      })
+      .sort({ createdAt: -1 });
+
+    // Transform the data
+    const transformedRentals = rentals.map((rental) => {
+      const now = new Date();
+      const endDate = new Date(rental.endDate);
+      const isOverdue = now > endDate && rental.status === "active";
+      const daysRemaining =
+        rental.status === "active"
+          ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24))
+          : 0;
+
+      const rentalObj = rental.toObject();
+
+      return {
+        ...rentalObj,
+        product: rentalObj.productId,
+        isOverdue,
+        daysRemaining,
+        productId: rentalObj.productId?._id || rentalObj.productId,
+      };
+    });
+
+    res.json({
+      success: true,
+      rentals: transformedRentals,
+    });
+  } catch (error) {
+    console.error("Error fetching filtered rentals:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch rentals",
       error: error.message,
     });
   }
