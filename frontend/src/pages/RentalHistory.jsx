@@ -9,6 +9,31 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 
+// Image component with proper fallback handling
+const ImageWithFallback = ({ src, alt, className }) => {
+  const [imgSrc, setImgSrc] = useState(src);
+  const [hasError, setHasError] = useState(false);
+
+  const handleError = () => {
+    if (!hasError) {
+      setHasError(true);
+      // Use a data URL for a simple placeholder instead of trying to load a file
+      setImgSrc(
+        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K"
+      );
+    }
+  };
+
+  useEffect(() => {
+    setImgSrc(src);
+    setHasError(false);
+  }, [src]);
+
+  return (
+    <img src={imgSrc} alt={alt} className={className} onError={handleError} />
+  );
+};
+
 export default function RentalHistory() {
   const { user, getToken } = useAuth();
   const navigate = useNavigate();
@@ -23,6 +48,20 @@ export default function RentalHistory() {
     total: 0,
   });
 
+  // Get the correct API base URL
+  const getApiUrl = () => {
+    // Try to determine the correct API URL
+    const currentUrl = window.location.origin;
+
+    // If we're on localhost:3000 (React dev server), backend is likely on :8000
+    if (currentUrl.includes("localhost:3000")) {
+      return "http://localhost:8000";
+    }
+
+    // Otherwise, assume same origin
+    return currentUrl;
+  };
+
   useEffect(() => {
     if (!user) {
       navigate("/login");
@@ -34,38 +73,63 @@ export default function RentalHistory() {
   const fetchRentals = async () => {
     try {
       setLoading(true);
+      setError(""); // Clear previous errors
+
+      const baseUrl = getApiUrl();
       const url =
         filter === "all"
-          ? "http://localhost:8000/api/rentals"
-          : `http://localhost:8000/api/rentals?status=${filter}`;
+          ? `${baseUrl}/api/rentals`
+          : `${baseUrl}/api/rentals?status=${filter}`;
+
+      console.log("Fetching rentals from:", url);
+      console.log("User:", user);
+      console.log("Token exists:", !!getToken());
 
       const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          "Content-Type": "application/json",
+        },
       });
+
+      console.log("Response status:", response.status);
+      console.log("Response ok:", response.ok);
 
       if (response.ok) {
         const data = await response.json();
-        setRentals(data.rentals || []);
+        console.log("API Response data:", data);
+
+        // Handle different possible response structures
+        const rentalsArray = data.rentals || data.data || data || [];
+        console.log("Rentals array:", rentalsArray);
+        console.log("Rentals count:", rentalsArray.length);
+
+        setRentals(rentalsArray);
 
         // Calculate stats
-        const active =
-          data.rentals?.filter((r) => r.status === "active").length || 0;
-        const returned =
-          data.rentals?.filter((r) => r.status === "returned").length || 0;
-        const overdue = data.rentals?.filter((r) => r.isOverdue).length || 0;
+        const active = rentalsArray.filter((r) => r.status === "active").length;
+        const returned = rentalsArray.filter(
+          (r) => r.status === "returned"
+        ).length;
+        const overdue = rentalsArray.filter((r) => r.isOverdue).length;
+
         setStats({
           active,
           returned,
           overdue,
-          total: data.rentals?.length || 0,
+          total: rentalsArray.length,
         });
       } else {
-        const errorData = await response.json();
-        setError(errorData.message || "Failed to fetch rentals");
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          errorData.message ||
+          `HTTP ${response.status}: ${response.statusText}`;
+        console.error("API Error:", errorMessage);
+        setError(errorMessage);
       }
     } catch (err) {
-      setError("Failed to fetch rentals");
-      console.error("Error:", err);
+      console.error("Fetch Error:", err);
+      setError(`Network error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -73,8 +137,9 @@ export default function RentalHistory() {
 
   const updateRentalStatus = async (rentalId, newStatus) => {
     try {
+      const baseUrl = getApiUrl();
       const response = await fetch(
-        `http://localhost:8000/api/rentals/${rentalId}/status`,
+        `${baseUrl}/api/rentals/${rentalId}/status`,
         {
           method: "PATCH",
           headers: {
@@ -88,10 +153,11 @@ export default function RentalHistory() {
       if (response.ok) {
         fetchRentals(); // Refresh list
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         setError(errorData.message || "Failed to update status");
       }
     } catch (err) {
+      console.error("Update status error:", err);
       setError("Failed to update status");
     }
   };
@@ -136,12 +202,21 @@ export default function RentalHistory() {
     );
   };
 
-  const formatDate = (date) => new Date(date).toLocaleDateString();
+  const formatDate = (date) => {
+    try {
+      return new Date(date).toLocaleDateString();
+    } catch (err) {
+      return "Invalid date";
+    }
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your rentals...</p>
+        </div>
       </div>
     );
   }
@@ -152,12 +227,20 @@ export default function RentalHistory() {
         <div className="text-center py-10 bg-white p-8 rounded-lg shadow-md max-w-md">
           <h2 className="text-xl font-semibold mb-2 text-red-600">Error</h2>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={fetchRentals}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Try Again
-          </button>
+          <div className="space-x-2">
+            <button
+              onClick={fetchRentals}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              Refresh Page
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -171,6 +254,24 @@ export default function RentalHistory() {
           <p className="text-gray-600">
             Manage your rental history and active rentals
           </p>
+
+          {/* Debug Info - Remove this in production */}
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
+            <p>
+              <strong>Debug Info:</strong>
+            </p>
+            <p>User: {user ? "Logged in" : "Not logged in"}</p>
+            <p>User ID: {user?.userId || user?.id || "No ID found"}</p>
+            <p>Filter: {filter}</p>
+            <p>Rentals loaded: {rentals.length}</p>
+            <p>API Base URL: {getApiUrl()}</p>
+            <p>
+              Current API URL:{" "}
+              {filter === "all"
+                ? `${getApiUrl()}/api/rentals`
+                : `${getApiUrl()}/api/rentals?status=${filter}`}
+            </p>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -228,42 +329,52 @@ export default function RentalHistory() {
             </p>
             <button
               onClick={() => navigate("/products")}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mr-2"
             >
               Browse Products
+            </button>
+            <button
+              onClick={fetchRentals}
+              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              Refresh Data
             </button>
           </div>
         ) : (
           <div className="space-y-4">
             {rentals.map((rental) => (
-              <div key={rental._id} className="bg-white rounded-lg shadow p-6">
+              <div
+                key={rental._id || rental.id}
+                className="bg-white rounded-lg shadow p-6"
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4 flex-1">
-                    <img
+                    {/* Updated image handling using the ImageWithFallback component */}
+                    <ImageWithFallback
                       src={
-                        rental.product.imageUrl
-                          ? `http://localhost:8000${rental.product.imageUrl}`
-                          : "/no-image.jpg"
+                        rental.product?.imageUrl
+                          ? `${getApiUrl()}${rental.product.imageUrl}`
+                          : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K"
                       }
-                      alt={rental.product.title}
+                      alt={rental.product?.title || "Product"}
                       className="w-16 h-16 object-cover rounded-lg"
                     />
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
                         <div>
                           <h3 className="font-semibold text-gray-900 mb-1">
-                            {rental.product.title}
+                            {rental.product?.title || "Unknown Product"}
                           </h3>
                           <p className="text-sm text-gray-600 mb-2">
-                            {rental.product.description}
+                            {rental.product?.description || "No description"}
                           </p>
                           <div className="flex items-center space-x-4 text-sm text-gray-500">
                             <span>
                               {formatDate(rental.startDate)} -{" "}
                               {formatDate(rental.endDate)}
                             </span>
-                            <span>{rental.rentalDays} days</span>
-                            <span>Rs. {rental.totalAmount}</span>
+                            <span>{rental.rentalDays || 0} days</span>
+                            <span>Rs. {rental.totalAmount || 0}</span>
                           </div>
                         </div>
                         <div className="text-right">
@@ -284,16 +395,20 @@ export default function RentalHistory() {
                       <div className="flex justify-between items-center mt-4">
                         <div className="text-xs text-gray-500">
                           <span>
-                            Payment: {rental.paymentMethod?.toUpperCase()}
+                            Payment:{" "}
+                            {rental.paymentMethod?.toUpperCase() || "N/A"}
                           </span>
                           <span className="mx-2">•</span>
-                          <span>Order: {rental.purchaseOrderId}</span>
+                          <span>Order: {rental.purchaseOrderId || "N/A"}</span>
                         </div>
                         <div className="space-x-2">
                           {rental.status === "active" && (
                             <button
                               onClick={() =>
-                                updateRentalStatus(rental._id, "returned")
+                                updateRentalStatus(
+                                  rental._id || rental.id,
+                                  "returned"
+                                )
                               }
                               className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
                             >
@@ -301,7 +416,9 @@ export default function RentalHistory() {
                             </button>
                           )}
                           <button
-                            onClick={() => navigate(`/rentals/${rental._id}`)}
+                            onClick={() =>
+                              navigate(`/rentals/${rental._id || rental.id}`)
+                            }
                             className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200"
                           >
                             Details

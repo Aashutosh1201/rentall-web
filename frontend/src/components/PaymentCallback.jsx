@@ -1,4 +1,4 @@
-// components/PaymentCallback.jsx
+// Fixed PaymentCallback.jsx
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -6,28 +6,19 @@ import { useAuth } from "../context/AuthContext";
 export default function PaymentCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const [status, setStatus] = useState("processing");
   const [message, setMessage] = useState("Processing your payment...");
-  const [hasProcessed, setHasProcessed] = useState(false);
 
   useEffect(() => {
-    console.log("PaymentCallback state:", {
-      pidx: searchParams.get("pidx"),
-      paymentStatus: searchParams.get("status"),
-      user: user ? "authenticated" : "not authenticated",
-      loading,
-      hasProcessed,
-    });
-
-    // Wait for auth to be fully loaded and only process once
-    if (loading || hasProcessed) {
-      return; // Still loading auth or already processed
+    if (!user?.token) {
+      setStatus("error");
+      setMessage("Authentication required. Please log in again.");
+      setTimeout(() => navigate("/login"), 3000);
+      return;
     }
 
     const processPayment = async () => {
-      setHasProcessed(true); // Mark as processed immediately
-
       try {
         const pidx = searchParams.get("pidx");
         const paymentStatus = searchParams.get("status");
@@ -39,90 +30,132 @@ export default function PaymentCallback() {
           return;
         }
 
-        // Check if user is authenticated
-        if (!user || !user.token) {
-          setStatus("error");
-          setMessage("Authentication required. Please log in again.");
-          setTimeout(() => {
-            navigate("/login");
-          }, 3000);
-          return;
-        }
-
         if (paymentStatus === "Completed") {
-          console.log("Processing completed payment verification...");
+          setMessage("Verifying payment and creating rental...");
 
-          const response = await fetch("/api/payment/khalti/verify", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${user.token}`,
-            },
-            body: JSON.stringify({ pidx }),
-          });
+          // Step 1: Verify payment
+          const verifyResponse = await fetch(
+            "http://localhost:8000/api/payment/khalti/verify",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${user.token}`,
+              },
+              body: JSON.stringify({ pidx }),
+            }
+          );
 
-          console.log("Backend response status:", response.status);
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          if (!verifyResponse.ok) {
+            const verifyError = await verifyResponse
+              .json()
+              .catch(() => ({ message: "Payment verification failed" }));
+            throw new Error(
+              verifyError.message || "Payment verification failed"
+            );
           }
 
-          const data = await response.json();
-          console.log("Backend response data:", data);
+          const verifyData = await verifyResponse.json();
 
-          if (data.success && data.status === "completed") {
-            setStatus("success");
-            setMessage("Payment successful! Your rental has been confirmed.");
-
-            setTimeout(() => {
-              navigate("/rentals");
-            }, 3000);
-          } else {
-            setStatus("error");
-            setMessage(
-              data.message ||
-                "Payment verification failed. Please contact support."
+          if (verifyData.success && verifyData.status === "completed") {
+            // Step 2: Get rental data from storage
+            const rentalData = JSON.parse(
+              sessionStorage.getItem("pendingRental") || "{}"
             );
+
+            // Prepare simplified rental data
+            const rentalRequestData = {
+              productId: rentalData.productId,
+              startDate: rentalData.startDate,
+              endDate: rentalData.endDate,
+              totalAmount: verifyData.total_amount
+                ? verifyData.total_amount / 100
+                : rentalData.totalAmount, // Convert from paisa to rupees
+              paymentId: pidx,
+              transactionId: transactionId || pidx,
+            };
+
+            console.log("Rental request data:", rentalRequestData); // Debug log
+
+            // Validate we have all required data
+            if (
+              !rentalRequestData.productId ||
+              !rentalRequestData.startDate ||
+              !rentalRequestData.endDate ||
+              !rentalRequestData.totalAmount
+            ) {
+              throw new Error("Missing rental information. Please try again.");
+            }
+
+            // Step 3: Create rental
+            const createRentalResponse = await fetch(
+              "http://localhost:8000/api/rentals/create",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${user.token}`,
+                },
+                body: JSON.stringify(rentalRequestData),
+              }
+            );
+
+            if (!createRentalResponse.ok) {
+              let errorData;
+              try {
+                errorData = await createRentalResponse.json();
+              } catch (parseError) {
+                const errorText = await createRentalResponse.text();
+                console.error("Raw error response:", errorText);
+                throw new Error(
+                  `Server error (${createRentalResponse.status}): ${errorText}`
+                );
+              }
+              throw new Error(
+                errorData.message ||
+                  `Rental creation failed (${createRentalResponse.status})`
+              );
+            }
+
+            const rentalResponse = await createRentalResponse.json();
+
+            if (rentalResponse.success) {
+              setStatus("success");
+              setMessage("Payment successful! Your rental has been confirmed.");
+
+              // Clear stored data
+              sessionStorage.removeItem("pendingRental");
+
+              setTimeout(() => navigate("/rentals"), 3000);
+            } else {
+              throw new Error(
+                rentalResponse.message || "Rental creation failed"
+              );
+            }
+          } else {
+            throw new Error("Payment verification failed");
           }
         } else if (paymentStatus === "User canceled") {
           setStatus("canceled");
           setMessage("Payment was canceled. You can try again.");
         } else {
-          console.log("Payment failed with status:", paymentStatus);
           setStatus("error");
           setMessage(`Payment failed: ${paymentStatus || "Unknown error"}`);
         }
       } catch (error) {
         console.error("Payment processing error:", error);
         setStatus("error");
-        setMessage(`Error processing payment: ${error.message}`);
+        setMessage(`Error: ${error.message}`);
       }
     };
 
-    // Process payment if we have the required parameters
     if (searchParams.get("pidx")) {
       processPayment();
     } else {
       setStatus("error");
       setMessage("No payment reference found");
-      setHasProcessed(true);
     }
-  }, [searchParams, user, loading, navigate, hasProcessed]);
-
-  // Show loading while auth context is initializing
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-blue-50 rounded-lg shadow-lg p-8 text-center">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
-          </div>
-          <h2 className="text-2xl font-bold text-blue-800 mb-4">Loading...</h2>
-          <p className="text-blue-800">Initializing payment verification...</p>
-        </div>
-      </div>
-    );
-  }
+  }, [searchParams, user, navigate]);
 
   const getStatusIcon = () => {
     switch (status) {
@@ -223,7 +256,7 @@ export default function PaymentCallback() {
         {getStatusIcon()}
 
         <h2 className={`text-2xl font-bold ${getStatusColor()} mb-4`}>
-          {status === "success" && "Payment Successful!"}
+          {status === "success" && "Rental Confirmed!"}
           {status === "error" && "Payment Failed"}
           {status === "canceled" && "Payment Canceled"}
           {status === "processing" && "Processing Payment..."}

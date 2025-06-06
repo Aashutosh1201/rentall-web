@@ -14,7 +14,7 @@ export default function Rent() {
   const [rentalDays, setRentalDays] = useState(1);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const isCartAction = searchParams.get("action") === "cart";
 
   useEffect(() => {
@@ -68,36 +68,66 @@ export default function Rent() {
     return product.pricePerDay * rentalDays;
   };
 
-  const generateUniqueOrderId = () => {
-    return `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  };
-
-  const handleRentalDaysChange = (days) => {
-    setRentalDays(days);
-    if (startDate) {
-      const start = new Date(startDate);
-      const end = new Date(start);
-      end.setDate(start.getDate() + days - 1);
-      setEndDate(end.toISOString().split("T")[0]);
+  const handleConfirmRental = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
     }
-  };
 
-  const initiateKhaltiPayment = async (rentalData) => {
+    // Clear any previous errors
+    setError("");
+
+    // Validate dates
+    if (!startDate || !endDate) {
+      setError("Please select both start and end dates");
+      return;
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    if (startDate < today) {
+      setError("Start date cannot be in the past");
+      return;
+    }
+
+    if (new Date(startDate) >= new Date(endDate)) {
+      setError("End date must be after start date");
+      return;
+    }
+
+    if (rentalDays < 1) {
+      setError("Rental must be for at least 1 day");
+      return;
+    }
+
+    setProcessing(true);
+
     try {
-      setPaymentProcessing(true);
-      setError(""); // Clear previous errors
+      // Calculate rental days
+      const calculatedRentalDays =
+        Math.ceil(
+          (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)
+        ) + 1;
 
-      console.log("=== PAYMENT DEBUG INFO ===");
-      console.log("Rental data:", rentalData);
-      console.log("Product:", product);
-      console.log("User:", user);
-      console.log("Token:", getToken());
+      const totalAmount = calculateTotal();
 
-      const paymentPayload = {
+      // Store minimal rental data in sessionStorage
+      const rentalData = {
+        productId: product._id,
+        productTitle: product.title,
+        startDate: startDate,
+        endDate: endDate,
+        rentalDays: calculatedRentalDays,
+        totalAmount: totalAmount,
+      };
+
+      sessionStorage.setItem("pendingRental", JSON.stringify(rentalData));
+
+      // Initialize Khalti payment
+      const paymentData = {
         return_url: `${window.location.origin}/payment/callback`,
         website_url: window.location.origin,
-        amount: calculateTotal() * 100,
-        purchase_order_id: generateUniqueOrderId(),
+        amount: totalAmount * 100, // Khalti expects amount in paisa
+        purchase_order_id: `rental_${Date.now()}`,
         purchase_order_name: `Rental: ${product.title}`,
         customer_info: {
           name: user.name || user.email.split("@")[0],
@@ -107,16 +137,16 @@ export default function Rent() {
         amount_breakdown: [
           {
             label: "Rental Cost",
-            amount: product.pricePerDay * rentalDays * 100,
+            amount: totalAmount * 100,
           },
         ],
         product_details: [
           {
             identity: product._id,
             name: product.title,
-            total_price: calculateTotal() * 100,
+            total_price: totalAmount * 100,
             quantity: 1,
-            unit_price: calculateTotal() * 100,
+            unit_price: totalAmount * 100,
           },
         ],
         merchant_username: "rental_platform",
@@ -131,17 +161,10 @@ export default function Rent() {
         }),
       };
 
-      console.log("Payment payload:", paymentPayload);
-
       const token = getToken();
       if (!token) {
         throw new Error("No authentication token found");
       }
-
-      console.log(
-        "Making request to:",
-        "http://localhost:8000/api/payment/khalti/initiate"
-      );
 
       const response = await fetch(
         "http://localhost:8000/api/payment/khalti/initiate",
@@ -151,12 +174,9 @@ export default function Rent() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(paymentPayload),
+          body: JSON.stringify(paymentData),
         }
       );
-
-      console.log("Response status:", response.status);
-      console.log("Response headers:", response.headers);
 
       let data;
       try {
@@ -164,27 +184,20 @@ export default function Rent() {
       } catch (parseError) {
         console.error("Failed to parse response as JSON:", parseError);
         const text = await response.text();
-        console.log("Response text:", text);
         throw new Error(`Server returned ${response.status}: ${text}`);
       }
 
-      console.log("Response data:", data);
-
-      // Fix: Check response status properly
       if (response.ok && data.payment_url) {
+        // Update sessionStorage with pidx
         sessionStorage.setItem(
           "pendingRental",
           JSON.stringify({
-            productId: rentalData.productId,
-            productTitle: product.title,
-            rentalDays: rentalData.rentalDays,
-            startDate: rentalData.startDate,
-            endDate: rentalData.endDate,
-            totalAmount: rentalData.totalAmount,
+            ...rentalData,
             pidx: data.pidx,
           })
         );
 
+        // Redirect to Khalti payment page
         window.location.href = data.payment_url;
       } else {
         // Handle different error status codes
@@ -199,21 +212,38 @@ export default function Rent() {
 
         throw new Error(errorMessage);
       }
-    } catch (err) {
-      console.error("=== PAYMENT ERROR ===");
-      console.error("Error details:", err);
-      console.error("Error message:", err.message);
-      console.error("Error stack:", err.stack);
+    } catch (error) {
+      console.error("Error initiating rental:", error);
+      setError(`Failed to initiate payment: ${error.message}`);
+    } finally {
+      setProcessing(false);
+    }
+  };
 
-      // Fix: Don't throw another error, just set the error state
-      setError("Failed to initiate payment: " + err.message);
-      setPaymentProcessing(false);
+  const handleRentalDaysChange = (days) => {
+    setRentalDays(days);
+    if (startDate) {
+      const start = new Date(startDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + days - 1);
+      setEndDate(end.toISOString().split("T")[0]);
     }
   };
 
   const handleAddToCart = async () => {
     if (!startDate || !endDate) {
       setError("Please select both start and end dates");
+      return;
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    if (startDate < today) {
+      setError("Start date cannot be in the past");
+      return;
+    }
+
+    if (endDate < startDate) {
+      setError("End date must be after start date");
       return;
     }
 
@@ -244,41 +274,6 @@ export default function Rent() {
     }
   };
 
-  const handleRent = async () => {
-    setError("");
-
-    if (!startDate || !endDate) {
-      setError("Please select both start and end dates");
-      return;
-    }
-
-    const today = new Date().toISOString().split("T")[0];
-    if (startDate < today) {
-      setError("Start date cannot be in the past");
-      return;
-    }
-
-    if (endDate < startDate) {
-      setError("End date must be after start date");
-      return;
-    }
-
-    if (rentalDays < 1) {
-      setError("Rental must be for at least 1 day");
-      return;
-    }
-
-    const rentalData = {
-      productId: id,
-      rentalDays,
-      startDate,
-      endDate,
-      totalAmount: calculateTotal(),
-    };
-
-    await initiateKhaltiPayment(rentalData);
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -293,6 +288,15 @@ export default function Rent() {
         <div className="text-center py-10 text-red-500 bg-red-50 p-8 rounded-lg shadow-md">
           <h2 className="text-2xl font-semibold mb-2">Error</h2>
           <p className="text-gray-600">{error}</p>
+          <button
+            onClick={() => {
+              setError("");
+              window.location.reload();
+            }}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -320,6 +324,13 @@ export default function Rent() {
               {isCartAction ? "Add to Cart" : "Complete Your Rental"}
             </h1>
 
+            {/* Error Display */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-700">{error}</p>
+              </div>
+            )}
+
             <div className="space-y-6">
               {/* Product Summary */}
               <div className="bg-gray-50 p-6 rounded-lg">
@@ -333,6 +344,15 @@ export default function Rent() {
                     }
                     alt={product.title}
                     className="w-24 h-24 object-cover rounded-lg"
+                    onError={(e) => {
+                      if (e.target.src !== "/no-image.jpg") {
+                        e.target.src = "/no-image.jpg";
+                      } else {
+                        // If even the fallback fails, use a data URL placeholder
+                        e.target.src =
+                          "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Im0xNSA5LTYgNi02LTYiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+";
+                      }
+                    }}
                   />
                   <div>
                     <h3 className="font-medium">{product.title}</h3>
@@ -408,11 +428,11 @@ export default function Rent() {
                   </button>
                 ) : (
                   <button
-                    onClick={handleRent}
-                    disabled={paymentProcessing}
+                    onClick={handleConfirmRental}
+                    disabled={processing}
                     className="w-full bg-purple-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-700 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                   >
-                    {paymentProcessing ? (
+                    {processing ? (
                       <>
                         <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
                         <span>Processing Payment...</span>
@@ -433,7 +453,7 @@ export default function Rent() {
                 )}
                 <button
                   onClick={() => navigate(-1)}
-                  disabled={paymentProcessing}
+                  disabled={processing}
                   className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel

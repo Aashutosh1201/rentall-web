@@ -1,8 +1,11 @@
-// models/Rental.js
+// Updated Rental Model with purchaseOrderId
+// models/Rental.js (Mongoose)
+
 const mongoose = require("mongoose");
 
 const rentalSchema = new mongoose.Schema(
   {
+    // Core rental fields
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -13,11 +16,8 @@ const rentalSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
-    rentalDays: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
+
+    // Dates and duration
     startDate: {
       type: Date,
       required: true,
@@ -26,45 +26,43 @@ const rentalSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    rentalDays: {
+      type: Number,
+      required: true,
+    },
+
+    // Payment info
     totalAmount: {
       type: Number,
       required: true,
-      min: 0,
-    },
-    status: {
-      type: String,
-      enum: ["pending", "active", "returned", "cancelled", "overdue"],
-      default: "pending",
-    },
-    paymentMethod: {
-      type: String,
-      enum: ["khalti", "esewa", "cash"],
-      default: "khalti",
     },
     paymentId: {
       type: String,
-      required: true,
+      required: true, // This is the pidx from Khalti
+      unique: true, // Ensure each payment can only create one rental
     },
     transactionId: {
       type: String,
       required: true,
     },
+
+    // NEW: Purchase Order ID
     purchaseOrderId: {
       type: String,
       required: true,
-      unique: true,
+      unique: true, // Each rental gets a unique purchase order ID
     },
-    // Additional fields for tracking
+
+    // Status
+    status: {
+      type: String,
+      enum: ["active", "returned", "cancelled"],
+      default: "active",
+    },
     paymentStatus: {
       type: String,
-      enum: ["pending", "completed", "failed", "refunded"],
-      default: "pending",
-    },
-    returnDate: {
-      type: Date,
-    },
-    notes: {
-      type: String,
+      enum: ["pending", "completed", "failed"],
+      default: "completed",
     },
   },
   {
@@ -72,33 +70,9 @@ const rentalSchema = new mongoose.Schema(
   }
 );
 
-// Virtual for checking if rental is overdue
-rentalSchema.virtual("isOverdue").get(function () {
-  if (this.status !== "active") return false;
-  return new Date() > this.endDate;
-});
-
-// Method to calculate days remaining
-rentalSchema.methods.getDaysRemaining = function () {
-  if (this.status !== "active") return null;
-  const today = new Date();
-  const diffTime = this.endDate - today;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
-};
-
-// Static method to find overdue rentals
-rentalSchema.statics.findOverdue = function () {
-  return this.find({
-    status: "active",
-    endDate: { $lt: new Date() },
-  });
-};
-
 // Index for efficient queries
 rentalSchema.index({ userId: 1, status: 1 });
-rentalSchema.index({ productId: 1 });
-rentalSchema.index({ paymentId: 1 });
-rentalSchema.index({ purchaseOrderId: 1 });
+rentalSchema.index({ userId: 1, createdAt: -1 });
+rentalSchema.index({ purchaseOrderId: 1 }); // Index for quick lookup by purchase order ID
 
 module.exports = mongoose.model("Rental", rentalSchema);
