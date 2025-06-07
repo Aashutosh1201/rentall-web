@@ -26,64 +26,6 @@ const useAuth = () => ({
   logout: () => console.log("Logout clicked"),
 });
 
-// Navbar Component
-// const Navbar = () => {
-//   const { isAuthenticated, logout } = useAuth();
-//   const [searchQuery, setSearchQuery] = useState("");
-
-//   return (
-//     <nav className="w-full bg-white shadow-sm fixed top-0 left-0 z-50 border-b border-gray-100">
-//       <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-//         <div className="flex items-center space-x-8">
-//           <a
-//             href="/"
-//             className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent"
-//           >
-//             RentALL
-//           </a>
-
-//           <div className="hidden lg:flex items-center bg-gray-50 rounded-lg px-4 py-2 w-64">
-//             <FiSearch className="text-gray-400 mr-2" />
-//             <input
-//               type="text"
-//               placeholder="Search..."
-//               className="bg-transparent border-none focus:outline-none w-full text-sm"
-//               value={searchQuery}
-//               onChange={(e) => setSearchQuery(e.target.value)}
-//             />
-//           </div>
-//         </div>
-
-//         <div className="flex items-center space-x-6">
-//           <button className="relative text-gray-500 hover:text-gray-700">
-//             <FiBell className="text-xl" />
-//             <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-white"></span>
-//           </button>
-
-//           <div className="hidden md:flex items-center space-x-2">
-//             <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-700 rounded-full flex items-center justify-center text-white font-medium">
-//               AK
-//             </div>
-//             <span className="text-sm font-medium text-gray-700">Aashutosh</span>
-//           </div>
-
-//           <button
-//             onClick={logout}
-//             className="hidden md:flex items-center text-gray-500 hover:text-gray-700"
-//           >
-//             <FiLogOut className="mr-1" />
-//             <span className="text-sm">Logout</span>
-//           </button>
-
-//           <button className="md:hidden text-2xl text-gray-600 hover:text-gray-800">
-//             ☰
-//           </button>
-//         </div>
-//       </div>
-//     </nav>
-//   );
-// };
-
 // Dashboard Home Component
 const DashboardHome = () => {
   const stats = [
@@ -795,10 +737,6 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
           <button className="w-full flex items-center px-4 py-3 text-left rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200">
             <FiSettings className="mr-3 text-lg text-gray-500" />
             <span>Settings</span>
-          </button>
-          <button className="w-full flex items-center px-4 py-3 text-left rounded-lg text-red-600 hover:bg-red-50 transition-all duration-200">
-            <FiLogOut className="mr-3 text-lg text-red-500" />
-            <span>Logout</span>
           </button>
         </div>
       </div>

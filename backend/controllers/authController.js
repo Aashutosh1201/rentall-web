@@ -34,29 +34,94 @@ transporter.verify(function (error, success) {
 
 const registerUser = async (req, res) => {
   try {
-    const { fullName, email, password } = req.body;
+    console.log("Registration request received:");
+    console.log("Request body:", req.body);
+
+    const { fullName, email, phone, password } = req.body;
+
+    console.log("Extracted fields:", {
+      fullName,
+      email,
+      phone,
+      password: password ? "***" : "undefined",
+    });
+
+    // Validate required fields
+    if (!fullName || !email || !phone || !password) {
+      console.log("Missing required fields");
+      return res.status(400).json({
+        message: "All fields are required",
+        missing: {
+          fullName: !fullName,
+          email: !email,
+          phone: !phone,
+          password: !password,
+        },
+      });
+    }
 
     // Check if user already exists
+    console.log("Checking if user exists with email:", email);
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log("User already exists");
       return res.status(400).json({ message: "Email already exists" });
     }
 
     // Hash password
+    console.log("Hashing password...");
     const hashedPassword = await bcrypt.hash(password, 10);
+    console.log("Password hashed successfully");
 
     // Create user
+    console.log("Creating new user...");
     const newUser = new User({
       fullName,
       email,
+      phone,
       password: hashedPassword,
     });
 
+    console.log("User object created, attempting to save...");
     await newUser.save();
+    console.log("User saved successfully");
+
     res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
     console.error("Registration Error:", error);
-    res.status(500).json({ message: "Server Error" });
+    console.error("Error details:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
+
+    // Check if it's a MongoDB validation error
+    if (error.name === "ValidationError") {
+      console.error("Validation errors:", error.errors);
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: Object.keys(error.errors).map((key) => ({
+          field: key,
+          message: error.errors[key].message,
+        })),
+      });
+    }
+
+    // Check if it's a duplicate key error
+    if (error.code === 11000) {
+      console.error("Duplicate key error:", error.keyValue);
+      return res.status(400).json({
+        message: "Email already exists",
+      });
+    }
+
+    res.status(500).json({
+      message: "Server Error",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Internal server error",
+    });
   }
 };
 

@@ -46,7 +46,7 @@ export default function Rent() {
     if (startDate && rentalDays) {
       const start = new Date(startDate);
       const end = new Date(start);
-      end.setDate(start.getDate() + rentalDays - 1);
+      end.setDate(start.getDate() + rentalDays);
       setEndDate(end.toISOString().split("T")[0]);
     }
   }, [startDate, rentalDays]);
@@ -56,7 +56,7 @@ export default function Rent() {
       const start = new Date(startDate);
       const end = new Date(endDate);
       const diffTime = end - start;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // Remove the + 1
       if (diffDays !== rentalDays && diffDays > 0) {
         setRentalDays(diffDays);
       }
@@ -103,10 +103,9 @@ export default function Rent() {
 
     try {
       // Calculate rental days
-      const calculatedRentalDays =
-        Math.ceil(
-          (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)
-        ) + 1;
+      const calculatedRentalDays = Math.ceil(
+        (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)
+      );
 
       const totalAmount = calculateTotal();
 
