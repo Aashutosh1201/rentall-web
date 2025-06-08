@@ -78,7 +78,8 @@ const Register = () => {
         password,
       });
 
-      navigate("/kyc-info");
+      localStorage.setItem("pendingVerificationEmail", email);
+      navigate("/verify-account");
     } catch (err) {
       console.error("Register Error:", err);
       setError(err.response?.data?.message || "Registration failed");

@@ -52,7 +52,8 @@ const productRoutes = require("./routes/productRoutes");
 const paymentRoutes = require("./routes/payment");
 const kycRoutes = require("./routes/kyc");
 const categoryRoutes = require("./routes/categoryRoutes");
-const rentalRoutes = require("./routes/rental"); // Add this line
+const rentalRoutes = require("./routes/rental");
+const verificationRoutes = require("./routes/verificationRoutes"); // Add this
 
 // Register routes
 app.use("/api/auth", authRoutes);
@@ -60,7 +61,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/kyc", kycRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/payment", paymentRoutes);
-app.use("/api/rentals", rentalRoutes); // Add this line
+app.use("/api/rentals", rentalRoutes);
+app.use("/api/verification", verificationRoutes); // Add this
 
 // Root route
 app.get("/", (req, res) => {
