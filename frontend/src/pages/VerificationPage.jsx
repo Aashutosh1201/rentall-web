@@ -9,6 +9,7 @@ const VerificationPage = () => {
   const [userInfo, setUserInfo] = useState(null);
   const [emailOTP, setEmailOTP] = useState("");
   const [phoneOTP, setPhoneOTP] = useState("");
+  const [mockMode, setMockMode] = useState(false);
   const [loading, setLoading] = useState({
     emailSend: false,
     emailVerify: false,
@@ -46,6 +47,12 @@ const VerificationPage = () => {
   const handleResponse = (response, successMsg) => {
     setMessage(successMsg);
     setError("");
+
+    // Check if response indicates mock mode
+    if (response.data.mockMode) {
+      setMockMode(true);
+    }
+
     if (response.data.isActive) {
       setTimeout(() => navigate("/login"), 1500);
     }
@@ -105,13 +112,23 @@ const VerificationPage = () => {
   const sendPhoneOTP = async () => {
     setLoadingState("phoneSend", true);
     try {
-      await axios.post(
+      const response = await axios.post(
         "http://localhost:8000/api/verification/send-sms-verification",
         {
           phone: userInfo.user.phone,
         }
       );
-      handleResponse({ data: {} }, "OTP sent to your phone!");
+
+      // Handle mock mode response
+      if (response.data.mockMode || response.data.otp) {
+        setMockMode(true);
+        handleResponse(
+          response,
+          `SMS Code: ${response.data.otp} (Mock Mode - Check Console)`
+        );
+      } else {
+        handleResponse(response, "OTP sent to your phone!");
+      }
     } catch (err) {
       handleError(err);
     } finally {
@@ -177,6 +194,21 @@ const VerificationPage = () => {
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
           Verify Your Account
         </h2>
+
+        {/* Development Mode Banner */}
+        {mockMode && (
+          <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
+            <div className="flex items-center">
+              <span className="text-lg mr-2">🛠️</span>
+              <div>
+                <p className="font-medium">Development Mode</p>
+                <p className="text-sm">
+                  SMS codes are shown in console and response
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mb-6">
           <p className="text-gray-600 text-center mb-4">
