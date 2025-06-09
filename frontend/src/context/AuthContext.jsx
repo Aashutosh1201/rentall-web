@@ -1,11 +1,14 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { jwtDecode } from "jwt-decode";
+import { jwtDecode } from "jwt-decode"; // Corrected import
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Admin email fetched from environment variables
+  const ADMIN_EMAIL = process.env.REACT_APP_ADMIN_EMAIL;
 
   // Validate token and check expiration
   const validateToken = (token) => {
@@ -14,14 +17,12 @@ export const AuthProvider = ({ children }) => {
       const currentTime = Date.now() / 1000;
 
       if (decoded.exp < currentTime) {
-        console.error("Token expired");
-        localStorage.removeItem("token");
+        localStorage.removeItem("token"); // Remove expired token
         return null;
       }
       return decoded;
-    } catch (err) {
-      console.error("Invalid token:", err);
-      localStorage.removeItem("token");
+    } catch {
+      localStorage.removeItem("token"); // Remove invalid token
       return null;
     }
   };
@@ -31,11 +32,7 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem("token");
     if (token) {
       const decodedUser = validateToken(token);
-      if (decodedUser) {
-        setUser({ ...decodedUser, token });
-      } else {
-        setUser(null); // Explicitly set to null if token is invalid
-      }
+      setUser(decodedUser ? { ...decodedUser, token } : null);
     } else {
       setUser(null); // Explicitly set to null if no token
     }
@@ -51,8 +48,7 @@ export const AuthProvider = ({ children }) => {
         return true;
       }
       return false;
-    } catch (err) {
-      console.error("Login error:", err);
+    } catch {
       return false;
     }
   };
@@ -71,9 +67,14 @@ export const AuthProvider = ({ children }) => {
       const decoded = jwtDecode(token);
       const currentTime = Date.now() / 1000;
       return decoded.exp > currentTime;
-    } catch (err) {
+    } catch {
       return false;
     }
+  };
+
+  // Check if the user is admin based on email
+  const isAdmin = () => {
+    return user?.email === ADMIN_EMAIL; // Compare user email with admin email
   };
 
   const getToken = () => {
@@ -86,13 +87,13 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     isAuthenticated,
+    isAdmin,
     getToken,
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {children}{" "}
-      {/* Always render children, let components handle loading state */}
+      {children}
     </AuthContext.Provider>
   );
 };

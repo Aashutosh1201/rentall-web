@@ -7,7 +7,7 @@ dotenv.config();
 const passport = require("./config/passport");
 const session = require("express-session");
 const path = require("path");
-
+const adminRoutes = require("./routes/adminRoutes");
 const app = express();
 
 // Middleware
@@ -35,6 +35,8 @@ app.use(
 
 // Initialize Passport
 app.use(passport.initialize());
+
+app.use("/api/admin", adminRoutes);
 
 // Serve static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

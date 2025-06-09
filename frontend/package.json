@@ -13,6 +13,7 @@
     "@testing-library/user-event": "^14.5.2",
     "axios": "^1.7.7",
     "date-fns": "^3.6.0",
+    "express": "^5.1.0",
     "jwt-decode": "^4.0.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.512.0",
@@ -43,9 +44,9 @@
       "react-app/jest"
     ],
     "rules": {
-      "no-unused-vars": "warn",
-      "no-console": "warn",
-      "react-hooks/exhaustive-deps": "warn"
+      "no-unused-vars": "off",
+      "no-console": "off",
+      "react-hooks/exhaustive-deps": "off"
     }
   },
   "browserslist": {

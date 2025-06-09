@@ -3,6 +3,7 @@ import { Suspense, lazy } from "react";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import PrivateRoute from "./components/PrivateRoute";
+import AdminRoute from "./components/AdminRoute"; // Import the new AdminRoute component
 import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingSpinner from "./components/LoadingSpinner";
 import CreateProduct from "./pages/CreateProduct";
@@ -31,8 +32,9 @@ const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CategoryProducts = lazy(() => import("./pages/CategoryProducts"));
+const Admin = lazy(() => import("./pages/Admin")); // Admin Dashboard
 
-// Dashboard component (your new combined dashboard)
+// Dashboard component (combined dashboard)
 const Dashboard = lazy(() => import("./pages/Dashboard/Dashboard"));
 
 // Layout Components
@@ -100,7 +102,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route path="/verify-account" element={<VerificationPage />} />
           <Route path="/verify-email/:token" element={<EmailVerifyHandler />} />
 
@@ -254,13 +255,21 @@ function App() {
             }
           />
 
-          {/* Dashboard route - simplified since you have a combined component */}
+          {/* Dashboard and Admin routes */}
           <Route
             path="/dashboard/*"
             element={
               <DashboardLayout>
                 <Dashboard />
               </DashboardLayout>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <Admin />
+              </AdminRoute>
             }
           />
 

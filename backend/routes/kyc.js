@@ -26,6 +26,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+// POST route for KYC submissions
 router.post(
   "/",
   upload.fields([
@@ -62,5 +63,16 @@ router.post(
     }
   }
 );
+
+// NEW: GET route to fetch all KYC submissions
+router.get("/", async (req, res) => {
+  try {
+    const kycSubmissions = await KYC.find(); // Fetch all KYC submissions from the database
+    res.status(200).json(kycSubmissions); // Return the data as JSON
+  } catch (err) {
+    console.error("KYC Fetch Error:", err);
+    res.status(500).json({ error: "Failed to fetch KYC submissions." });
+  }
+});
 
 module.exports = router;
