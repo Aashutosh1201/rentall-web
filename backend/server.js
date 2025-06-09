@@ -33,6 +33,8 @@ app.use(
   })
 );
 
+app.use("/api/products", require("./routes/products"));
+
 // Initialize Passport
 app.use(passport.initialize());
 

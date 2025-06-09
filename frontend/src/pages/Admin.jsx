@@ -45,11 +45,13 @@ const Admin = () => {
   // Update KYC Status
   const updateKYCStatus = async (id, status) => {
     try {
-      const { data } = await axiosInstance.put(`/kyc/${id}`, { status });
+      const { data } = await axiosInstance.patch(`/kyc/${id}`, { status }); // PATCH request
       setKycSubmissions((prev) =>
-        prev.map((kyc) =>
-          kyc._id === id ? { ...kyc, status: data.status } : kyc
-        )
+        prev
+          .map((kyc) =>
+            kyc._id === id ? { ...kyc, status: data.status } : kyc
+          )
+          .sort((a, b) => (a.status === "pending" ? -1 : 1)) // Keep pending first
       );
     } catch (err) {
       setError("Failed to update KYC status.");
@@ -182,7 +184,7 @@ const Admin = () => {
                   </button>
                   <button
                     className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-                    onClick={() => updateKYCStatus(kyc._id, "rejected")}
+                    onClick={() => updateKYCStatus(kyc._id, "disapproved")}
                   >
                     Reject
                   </button>

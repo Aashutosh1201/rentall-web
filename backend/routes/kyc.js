@@ -15,7 +15,7 @@ if (!fs.existsSync(kycDir)) {
 // Multer setup
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "KYC/");
+    cb(null, kycDir); // Save files to the KYC directory
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname);
@@ -53,25 +53,54 @@ router.post(
         idNumber,
         idDocumentPath,
         selfiePath,
+        status: "pending", // Default status
       });
 
       await newKYC.save();
       res.status(200).json({ message: "KYC submitted successfully." });
     } catch (err) {
-      console.error("KYC Error:", err);
+      console.error("KYC Submission Error:", err);
       res.status(500).json({ error: "Something went wrong." });
     }
   }
 );
 
-// NEW: GET route to fetch all KYC submissions
+// GET route to fetch all KYC submissions
 router.get("/", async (req, res) => {
   try {
-    const kycSubmissions = await KYC.find(); // Fetch all KYC submissions from the database
-    res.status(200).json(kycSubmissions); // Return the data as JSON
+    const kycSubmissions = await KYC.find(); // Fetch all KYC submissions
+    res.status(200).json(kycSubmissions);
   } catch (err) {
     console.error("KYC Fetch Error:", err);
     res.status(500).json({ error: "Failed to fetch KYC submissions." });
+  }
+});
+
+// PATCH route to update KYC status
+router.patch("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validate status
+    if (!["approved", "disapproved"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status value." });
+    }
+
+    const updatedKYC = await KYC.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedKYC) {
+      return res.status(404).json({ error: "KYC not found." });
+    }
+
+    res.status(200).json(updatedKYC);
+  } catch (err) {
+    console.error("KYC Update Error:", err);
+    res.status(500).json({ error: "Failed to update KYC status." });
   }
 });
 
