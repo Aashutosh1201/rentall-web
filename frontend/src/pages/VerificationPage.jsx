@@ -29,12 +29,23 @@ const VerificationPage = () => {
         paramEmail || localStorage.getItem("pendingVerificationEmail");
       if (!email) return navigate("/register");
 
+      // Ensure the email is stored for later use
+      if (!localStorage.getItem("pendingVerificationEmail")) {
+        localStorage.setItem("pendingVerificationEmail", email);
+      }
+
       const response = await axios.get(
         `http://localhost:8000/api/verification/status/${email}`
       );
       setUserInfo(response.data);
 
-      if (response.data.isActive) navigate("/login");
+      // If user is already active, set verification flag and redirect to KYC info
+      if (response.data.isActive) {
+        console.log("User is already active, redirecting to KYC info");
+        sessionStorage.setItem("justVerified", "true");
+        // DON'T clear pendingVerificationEmail here - keep it for KYC access
+        navigate("/kyc-info");
+      }
     } catch (err) {
       setError("Failed to fetch verification status");
     }
@@ -52,10 +63,6 @@ const VerificationPage = () => {
     if (response.data.mockMode) {
       setMockMode(true);
     }
-
-    if (response.data.isActive) {
-      setTimeout(() => navigate("/login"), 1500);
-    }
   };
 
   const handleError = (err) => {
@@ -66,7 +73,7 @@ const VerificationPage = () => {
   const sendEmailOTP = async () => {
     setLoadingState("emailSend", true);
     try {
-      await axios.post(
+      const response = await axios.post(
         "http://localhost:8000/api/verification/send-email-verification",
         {
           email: userInfo.user.email,
@@ -94,6 +101,9 @@ const VerificationPage = () => {
         }
       );
 
+      console.log("Email verification response:", response.data);
+
+      // Update user info state
       setUserInfo((prev) => ({
         ...prev,
         emailVerified: response.data.emailVerified,
@@ -101,7 +111,24 @@ const VerificationPage = () => {
       }));
 
       setEmailOTP("");
-      handleResponse(response, "Email verified successfully!");
+
+      // Auto redirect if account is now active
+      if (response.data.isActive) {
+        setMessage("Email verified successfully! Redirecting to KYC setup...");
+        // Set verification flag before redirecting
+        sessionStorage.setItem("justVerified", "true");
+        // Keep pendingVerificationEmail for KYC access
+        setTimeout(() => navigate("/kyc-info"), 2000);
+      } else {
+        setMessage(
+          "Email verified successfully! Please verify your phone to complete activation."
+        );
+      }
+
+      // Check for mock mode
+      if (response.data.mockMode) {
+        setMockMode(true);
+      }
     } catch (err) {
       handleError(err);
     } finally {
@@ -150,6 +177,9 @@ const VerificationPage = () => {
         }
       );
 
+      console.log("Phone verification response:", response.data);
+
+      // Update user info state
       setUserInfo((prev) => ({
         ...prev,
         phoneVerified: response.data.phoneVerified,
@@ -157,7 +187,19 @@ const VerificationPage = () => {
       }));
 
       setPhoneOTP("");
-      handleResponse(response, "Phone verified successfully!");
+
+      // Auto redirect if account is now active
+      if (response.data.isActive) {
+        setMessage("Phone verified successfully! Redirecting to KYC setup...");
+        // Set verification flag before redirecting
+        sessionStorage.setItem("justVerified", "true");
+        // Keep pendingVerificationEmail for KYC access
+        setTimeout(() => navigate("/kyc-info"), 2000);
+      } else {
+        setMessage(
+          "Phone verified successfully! Please verify your email to complete activation."
+        );
+      }
     } catch (err) {
       handleError(err);
     } finally {
@@ -292,20 +334,6 @@ const VerificationPage = () => {
             </button>
           </form>
         </VerificationSection>
-
-        {userInfo.isActive && (
-          <div className="text-center">
-            <p className="text-green-600 font-medium mb-3">
-              Account activated successfully!
-            </p>
-            <button
-              onClick={() => navigate("/login")}
-              className="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700"
-            >
-              Continue to Login
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

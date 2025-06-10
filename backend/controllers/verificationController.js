@@ -143,7 +143,7 @@ const verifyEmailOTP = async (req, res) => {
       emailVerified: true,
       phoneVerified: user.phoneVerified,
       isActive: user.isActive,
-      nextStep: user.isActive ? "login" : "phone_verification",
+      nextStep: user.isActive ? "kyc_info" : "phone_verification", // Changed from "login" to "kyc_info"
     });
   } catch (error) {
     console.error("Verify Email OTP Error:", error);
@@ -342,6 +342,7 @@ const verifyPhone = async (req, res) => {
       emailVerified: user.emailVerified,
       phoneVerified: true,
       isActive: user.isActive,
+      nextStep: user.isActive ? "kyc_info" : "email_verification", // Added nextStep for consistency
     });
   } catch (error) {
     console.error("Verify Phone Error:", error);

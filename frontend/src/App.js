@@ -3,6 +3,7 @@ import { Suspense, lazy } from "react";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import PrivateRoute from "./components/PrivateRoute";
+import PostVerificationRoute from "./components/PostVerificationRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingSpinner from "./components/LoadingSpinner";
 import CreateProduct from "./pages/CreateProduct";
@@ -197,14 +198,14 @@ function App() {
             }
           />
 
-          {/* KYC routes */}
+          {/* KYC routes - accessible after verification or login */}
           <Route
             path="/kyc-info"
             element={
               <PublicLayout>
-                <PrivateRoute>
+                <PostVerificationRoute>
                   <KYCInfo />
-                </PrivateRoute>
+                </PostVerificationRoute>
               </PublicLayout>
             }
           />
@@ -213,14 +214,14 @@ function App() {
             path="/kyc-form"
             element={
               <PublicLayout>
-                <PrivateRoute>
+                <PostVerificationRoute>
                   <KYCForm />
-                </PrivateRoute>
+                </PostVerificationRoute>
               </PublicLayout>
             }
           />
 
-          {/* Protected routes */}
+          {/* Protected routes - require full authentication */}
           <Route
             path="/rent/:id"
             element={
@@ -254,7 +255,7 @@ function App() {
             }
           />
 
-          {/* Dashboard route - simplified since you have a combined component */}
+          {/* Dashboard route - requires full authentication */}
           <Route
             path="/dashboard/*"
             element={
