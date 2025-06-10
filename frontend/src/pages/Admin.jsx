@@ -1,35 +1,13 @@
 import React, { useState, useEffect } from "react";
-import axiosInstance from "../api/axios"; // Import the Axios instance
+import axiosInstance from "../api/axios";
 
 const Admin = () => {
   const [products, setProducts] = useState([]);
   const [kycSubmissions, setKycSubmissions] = useState([]);
+  const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState("Products");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // Fetch data
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const [productRes, kycRes] = await Promise.all([
-          axiosInstance.get("/products"),
-          axiosInstance.get("/kyc"),
-        ]);
-        setProducts(productRes.data);
-        setKycSubmissions(kycRes.data);
-      } catch (err) {
-        console.error(err.response ? err.response.data : err.message);
-        setError("Error fetching data. Please try again.");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
 
   // Delete product
   const deleteProduct = async (id) => {
@@ -42,7 +20,6 @@ const Admin = () => {
     }
   };
 
-  // Update KYC Status
   const updateKYCStatus = async (id, status) => {
     try {
       const { data } = await axiosInstance.patch(`/kyc/${id}`, { status }); // PATCH request
@@ -59,6 +36,43 @@ const Admin = () => {
     }
   };
 
+
+
+  // Fetch data
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const [productRes, kycRes, usersRes] = await Promise.all([
+          axiosInstance.get("/products"),
+          axiosInstance.get("/kyc"),
+          axiosInstance.get("/users"),
+        ]);
+        setProducts(productRes.data);
+        setKycSubmissions(kycRes.data);
+        setUsers(usersRes.data);
+      } catch (err) {
+        console.error(err.response ? err.response.data : err.message);
+        setError("Error fetching data. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Delete user
+  const deleteUser = async (id) => {
+    try {
+      await axiosInstance.delete(`/users/${id}`);
+      setUsers((prev) => prev.filter((user) => user._id !== id));
+    } catch (err) {
+      setError("Failed to delete user.");
+      console.error(err);
+    }
+  };
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       {/* Header */}
@@ -71,7 +85,7 @@ const Admin = () => {
 
       {/* Tabs Navigation */}
       <nav className="flex mb-6 border-b">
-        {["Products", "KYC Submissions"].map((tab) => (
+        {["Products", "KYC Submissions", "Users"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -194,8 +208,43 @@ const Admin = () => {
           </div>
         </section>
       )}
+
+
+      {!loading && activeTab === "Users" && (
+        <section>
+          <h2 className="text-2xl font-semibold mb-4 text-gray-700">Users</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {users.map((user) => (
+              <div
+                key={user._id}
+                className="bg-white p-4 rounded-lg shadow hover:shadow-lg transition"
+              >
+                <h3 className="text-xl font-semibold text-gray-800">
+                  {user.fullName}
+                </h3>
+                <p className="text-gray-600 mt-1">
+                  <strong>Email:</strong> {user.email}
+                </p>
+                <p className="text-gray-600 mt-1">
+                  <strong>Phone:</strong> {user.phone}
+                </p>
+                <p className="text-gray-600 mt-1">
+                  <strong>Status:</strong> {user.isActive ? "Active" : "Inactive"}
+                </p>
+                <button
+                  className="bg-red-500 text-white px-4 py-2 rounded-lg mt-4 hover:bg-red-600"
+                  onClick={() => deleteUser(user._id)}
+                >
+                  Delete User
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };
 
 export default Admin;
+
