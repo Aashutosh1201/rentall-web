@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const TempUser = require("../models/TempUser"); // Add this import
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
@@ -15,6 +16,9 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+const generateOTP = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
+
 const registerUser = async (req, res) => {
   try {
     const { fullName, email, phone, password } = req.body;
@@ -29,61 +33,48 @@ const registerUser = async (req, res) => {
       });
     }
 
-    // Check if user already exists
+    // Check if user already exists in main User collection
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "Email already exists" });
     }
 
+    // Check if user already exists in TempUser collection
+    const existingTempUser = await TempUser.findOne({ email });
+    if (existingTempUser) {
+      // Remove existing temp user to allow re-registration
+      await TempUser.deleteOne({ email });
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generate email verification token
-    const emailVerificationToken = crypto.randomBytes(32).toString("hex");
-    const emailVerificationExpires = Date.now() + 3600000; // 1 hour
+    // Generate OTPs for both email and phone
+    const emailVerificationOTP = generateOTP();
+    const phoneVerificationOTP = generateOTP();
+    const otpExpires = Date.now() + 600000; // 10 minutes
 
-    console.log("2. Generated verification data:");
-    console.log("   - Token:", emailVerificationToken);
-    console.log("   - Token length:", emailVerificationToken.length);
-    console.log("   - Expires at:", new Date(emailVerificationExpires));
+    console.log("2. Generated OTPs:");
+    console.log("   - Email OTP:", emailVerificationOTP);
+    console.log("   - Phone OTP:", phoneVerificationOTP);
 
-    // Create user
-    const newUser = new User({
+    // Create temporary user
+    const newTempUser = new TempUser({
       fullName,
       email,
       phone,
       password: hashedPassword,
-      emailVerificationToken,
-      emailVerificationExpires,
+      emailVerificationOTP,
+      emailVerificationOTPExpires: otpExpires,
+      phoneVerificationOTP,
+      phoneVerificationExpires: otpExpires,
     });
 
-    console.log("3. Saving user to database...");
-    const savedUser = await newUser.save();
-    console.log("4. ✅ User saved with ID:", savedUser._id);
+    console.log("3. Saving to TempUser collection...");
+    const savedTempUser = await newTempUser.save();
+    console.log("4. ✅ TempUser saved with ID:", savedTempUser._id);
 
-    // Double-check the saved data
-    console.log("5. Verifying saved token data:");
-    console.log("   - Saved token:", savedUser.emailVerificationToken);
-    console.log("   - Saved expiry:", savedUser.emailVerificationExpires);
-    console.log(
-      "   - Token match:",
-      savedUser.emailVerificationToken === emailVerificationToken
-    );
-
-    // Wait a moment to ensure database write is complete
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Triple-check by querying the database
-    const verifyUser = await User.findById(savedUser._id);
-    console.log("6. Database verification:");
-    console.log("   - Found user:", !!verifyUser);
-    console.log("   - DB token:", verifyUser?.emailVerificationToken);
-    console.log("   - DB expiry:", verifyUser?.emailVerificationExpires);
-
-    // Send verification email
-    const verificationUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/verify-email/${emailVerificationToken}`;
-    console.log("7. Verification URL:", verificationUrl);
-
+    // Send verification email with OTP
     const mailOptions = {
       from: `"RentALL" <${process.env.EMAIL_USER}>`,
       to: email,
@@ -95,39 +86,19 @@ const registerUser = async (req, res) => {
             <h2 style="color: #374151; margin-top: 10px;">Welcome to RentALL!</h2>
           </div>
           
-          <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
             <p style="color: #374151; font-size: 16px; line-height: 1.5; margin: 0;">
               Hello ${fullName},
             </p>
             <p style="color: #374151; font-size: 16px; line-height: 1.5;">
-              Thank you for registering with RentALL! To complete your account setup, please verify your email address by clicking the button below.
+              Your email verification code is:
             </p>
             
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationUrl}" 
-                 style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                Verify Email Address
-              </a>
-            </div>
+            <h1 style="color: #2563eb; font-size: 32px; letter-spacing: 4px; margin: 20px 0;">${emailVerificationOTP}</h1>
             
             <p style="color: #6b7280; font-size: 14px; line-height: 1.5;">
-              If the button doesn't work, copy and paste this link into your browser:
-              <br>
-              <a href="${verificationUrl}" style="color: #2563eb; word-break: break-all;">${verificationUrl}</a>
+              This code expires in 10 minutes for security reasons.
             </p>
-            
-            <p style="color: #6b7280; font-size: 14px; line-height: 1.5;">
-              This link will expire in 1 hour for security reasons.
-            </p>
-            ${
-              process.env.NODE_ENV === "development"
-                ? `
-            <p style="color: #6b7280; font-size: 12px;">
-              Debug info: Token ${emailVerificationToken.substring(0, 8)}...
-            </p>
-            `
-                : ""
-            }
           </div>
           
           <div style="border-top: 1px solid #e5e7eb; padding-top: 20px;">
@@ -141,9 +112,9 @@ const registerUser = async (req, res) => {
 
     try {
       await transporter.sendMail(mailOptions);
-      console.log("8. ✅ Verification email sent successfully");
+      console.log("5. ✅ Verification email sent successfully");
     } catch (emailError) {
-      console.error("8. ❌ Failed to send verification email:", emailError);
+      console.error("5. ❌ Failed to send verification email:", emailError);
       // Don't fail registration if email fails, but log it
     }
 
@@ -151,16 +122,20 @@ const registerUser = async (req, res) => {
 
     res.status(201).json({
       message:
-        "User registered successfully. Please check your email for verification.",
+        "Registration initiated. Please verify your email and phone to complete account creation.",
       user: {
-        id: savedUser._id,
         email: email,
         phone: phone,
         fullName: fullName,
       },
-      nextStep: "email_verification",
-      verificationUrl:
-        process.env.NODE_ENV === "development" ? verificationUrl : undefined,
+      nextStep: "verification",
+      // In development, include OTPs for testing
+      ...(process.env.NODE_ENV === "development" && {
+        debug: {
+          emailOTP: emailVerificationOTP,
+          phoneOTP: phoneVerificationOTP,
+        },
+      }),
     });
   } catch (error) {
     console.error("❌ Registration Error:", error);
@@ -191,39 +166,21 @@ const registerUser = async (req, res) => {
   }
 };
 
-// test Email
-const testEmail = async (req, res) => {
-  try {
-    const mailOptions = {
-      from: `"RentALL Test" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER, // Send to yourself for testing
-      subject: "Test Email - RentALL",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #2563eb;">Email Test Successful!</h2>
-          <p>This is a test email from RentALL application.</p>
-          <p>Timestamp: ${new Date().toISOString()}</p>
-        </div>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: "Test email sent successfully" });
-  } catch (error) {
-    console.error("Test email error:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to send test email", error: error.message });
-  }
-};
-
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check if user exists
+    // Only check in main User collection (verified users)
     const user = await User.findOne({ email });
     if (!user) {
+      // Check if user exists in TempUser (unverified)
+      const tempUser = await TempUser.findOne({ email });
+      if (tempUser) {
+        return res.status(403).json({
+          message: "Please complete email and phone verification first.",
+          needsVerification: true,
+        });
+      }
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
@@ -231,18 +188,6 @@ const loginUser = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    // Check if account is active (both email and phone verified)
-    if (!user.isActive) {
-      return res.status(403).json({
-        message:
-          "Account not activated. Please verify your email and phone number.",
-        emailVerified: user.emailVerified,
-        phoneVerified: user.phoneVerified,
-        userEmail: user.email,
-        userPhone: user.phone,
-      });
     }
 
     // Generate JWT token
@@ -260,8 +205,6 @@ const loginUser = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
-        emailVerified: user.emailVerified,
-        phoneVerified: user.phoneVerified,
       },
     });
   } catch (error) {
@@ -270,25 +213,7 @@ const loginUser = async (req, res) => {
   }
 };
 
-// Keep existing functions
-const protectedRoute = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.userId).select("fullName email");
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.status(200).json({
-      message: `Hello, ${user.fullName}! This is a protected route.`,
-      user,
-    });
-  } catch (error) {
-    console.error("Protected Route Error:", error);
-    res.status(500).json({ message: "Server Error" });
-  }
-};
-
+// Keep existing functions (forgotPassword, resetPassword, testEmail, protectedRoute)
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -362,6 +287,49 @@ const resetPassword = async (req, res) => {
     res.status(200).json({ message: "Password reset successful" });
   } catch (error) {
     console.error("Reset Password Error:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+const testEmail = async (req, res) => {
+  try {
+    const mailOptions = {
+      from: `"RentALL Test" <${process.env.EMAIL_USER}>`,
+      to: process.env.EMAIL_USER,
+      subject: "Test Email - RentALL",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2563eb;">Email Test Successful!</h2>
+          <p>This is a test email from RentALL application.</p>
+          <p>Timestamp: ${new Date().toISOString()}</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: "Test email sent successfully" });
+  } catch (error) {
+    console.error("Test email error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to send test email", error: error.message });
+  }
+};
+
+const protectedRoute = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select("fullName email");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: `Hello, ${user.fullName}! This is a protected route.`,
+      user,
+    });
+  } catch (error) {
+    console.error("Protected Route Error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
