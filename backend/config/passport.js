@@ -34,12 +34,13 @@ passport.use(
           // Create new user if doesn't exist
           user = await User.create({
             email: profile.emails[0].value,
-            fullName: profile.displayName,
+            fullName:
+              profile.displayName || profile.name?.givenName || "Google User",
             googleId: profile.id,
             // Set a random password for Google users
             password: Math.random().toString(36).slice(-8),
             // Set a default phone number that can be updated later
-            phone: "0000000000",
+            phone: "not provided",
           });
         } else {
           console.log("Existing user found:", user.email);

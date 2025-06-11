@@ -42,4 +42,31 @@ router.get("/protected", verifyToken, (req, res) => {
   });
 });
 
+router.post("/complete-profile", verifyToken, async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone || phone === "not provided") {
+      return res
+        .status(400)
+        .json({ message: "Valid phone number is required" });
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.phone === "not provided") {
+      user.phone = phone;
+      await user.save();
+    }
+
+    res.json({ message: "Profile updated", phone: user.phone });
+  } catch (err) {
+    console.error("Complete profile error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;
