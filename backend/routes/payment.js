@@ -1,13 +1,13 @@
 // routes/payment.js
 const express = require("express");
 const router = express.Router();
-const auth = require("../middleware/authMiddleware");
+const { verifyToken } = require("../middleware/authMiddleware");
 const axios = require("axios");
 
 const Rental = require("../models/Rental");
 
 // Khalti payment initiation endpoint
-router.post("/khalti/initiate", auth, async (req, res) => {
+router.post("/khalti/initiate", verifyToken, async (req, res) => {
   console.log("=== KHALTI INITIATE ENDPOINT HIT ===");
   console.log("Request body:", JSON.stringify(req.body, null, 2));
   console.log("User from auth:", req.user);
@@ -185,7 +185,7 @@ router.post("/khalti/initiate", auth, async (req, res) => {
 
 // Khalti payment verification endpoint
 // Khalti payment verification endpoint - FIXED VERSION
-router.post("/khalti/verify", auth, async (req, res) => {
+router.post("/khalti/verify", verifyToken, async (req, res) => {
   console.log("🔍 VERIFY ENDPOINT HIT - pidx:", req.body.pidx);
   console.log("🔍 User from auth:", req.user);
 

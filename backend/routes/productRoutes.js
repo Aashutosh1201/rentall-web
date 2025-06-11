@@ -4,7 +4,7 @@ const {
   getAllProducts,
   getOneProduct,
 } = require("../controllers/productController");
-const verifyToken = require("../middleware/authMiddleware");
+const { verifyToken } = require("../middleware/authMiddleware");
 const upload = require("../middleware/upload"); // ✅ use the shared multer config
 
 const router = express.Router();

@@ -3,7 +3,7 @@
 
 const express = require("express");
 const router = express.Router();
-const verifyToken = require("../middleware/authMiddleware");
+const { verifyToken } = require("../middleware/authMiddleware");
 const Rental = require("../models/Rental");
 const Product = require("../models/Product");
 

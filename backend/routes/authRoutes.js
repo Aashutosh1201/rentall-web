@@ -1,7 +1,8 @@
 const express = require("express");
-const verifyToken = require("../middleware/authMiddleware");
+const { verifyToken } = require("../middleware/authMiddleware");
 const router = express.Router();
 const passport = require("../config/passport");
+const User = require("../models/User"); // Add this line - import the User model
 const {
   registerUser,
   loginUser,

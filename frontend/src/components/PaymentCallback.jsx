@@ -1,4 +1,4 @@
-// Fixed PaymentCallback.jsx - Handles authentication issues during payment callback
+// Clean PaymentCallback.jsx - No debug logs or debug displays
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -6,23 +6,11 @@ import { useAuth } from "../context/AuthContext";
 export default function PaymentCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, login } = useAuth(); // Add login function from context
+  const { user, login } = useAuth();
   const [status, setStatus] = useState("processing");
   const [message, setMessage] = useState("Processing your payment...");
-  const [debugInfo, setDebugInfo] = useState(null);
-  const [logs, setLogs] = useState([]);
   const processedRef = useRef(false);
   const mountedRef = useRef(true);
-
-  const addLog = (log) => {
-    console.log("PaymentCallback:", log);
-    if (mountedRef.current) {
-      setLogs((prev) => [
-        ...prev,
-        `${new Date().toLocaleTimeString()}: ${log}`,
-      ]);
-    }
-  };
 
   // Function to attempt user restoration from localStorage
   const restoreUserSession = () => {
@@ -32,16 +20,13 @@ export default function PaymentCallback() {
 
       if (storedUser && storedToken) {
         const userData = JSON.parse(storedUser);
-        // If login function is available in context, use it
         if (login && typeof login === "function") {
           login({ ...userData, token: storedToken });
-          addLog("User session restored from localStorage");
           return { ...userData, token: storedToken };
         }
       }
       return null;
     } catch (error) {
-      addLog(`Error restoring user session: ${error.message}`);
       return null;
     }
   };
@@ -49,44 +34,25 @@ export default function PaymentCallback() {
   useEffect(() => {
     mountedRef.current = true;
 
-    // Only prevent multiple executions if we've already succeeded
     if (
       processedRef.current &&
       (status === "success" || status === "error" || status === "canceled")
     ) {
-      addLog("Already processed with final status, skipping...");
       return;
     }
 
-    // Set processed flag immediately
     processedRef.current = true;
 
     const processPayment = async () => {
       try {
-        addLog("Starting payment processing...");
-
         const pidx = searchParams.get("pidx");
         const paymentStatus = searchParams.get("status");
         const transactionId = searchParams.get("transaction_id");
         const amount = searchParams.get("amount");
         const totalAmount = searchParams.get("total_amount");
 
-        addLog(
-          `URL Parameters - pidx: ${pidx}, status: ${paymentStatus}, transactionId: ${transactionId}, amount: ${amount}`
-        );
-
-        const urlParams = {
-          pidx,
-          paymentStatus,
-          transactionId,
-          amount,
-          totalAmount,
-          allParams: Object.fromEntries(searchParams.entries()),
-        };
-
         // Validate required parameters first
         if (!pidx) {
-          addLog("ERROR: Missing pidx parameter");
           if (mountedRef.current) {
             setStatus("error");
             setMessage("Invalid payment reference. Please try again.");
@@ -96,7 +62,6 @@ export default function PaymentCallback() {
 
         // Check for cancellation first
         if (paymentStatus === "User canceled" || paymentStatus === "Canceled") {
-          addLog("Payment was canceled by user");
           if (mountedRef.current) {
             setStatus("canceled");
             setMessage("Payment was canceled. You can try again.");
@@ -107,38 +72,19 @@ export default function PaymentCallback() {
         // Handle authentication - try to restore if not present
         let currentUser = user;
         if (!currentUser?.token) {
-          addLog("User not authenticated, attempting to restore session...");
           currentUser = restoreUserSession();
-        }
-
-        if (mountedRef.current) {
-          setDebugInfo({
-            ...urlParams,
-            timestamp: new Date().toISOString(),
-            userToken: currentUser?.token ? "Present" : "Missing",
-            userInfo: currentUser ? "Logged in" : "Not logged in",
-            sessionRestored: !user?.token && currentUser?.token ? "Yes" : "No",
-          });
         }
 
         // If payment is completed and we have user + amount, try direct creation
         if (paymentStatus === "Completed" && amount && currentUser?.token) {
-          addLog(
-            "Payment status from URL is 'Completed', attempting direct rental creation"
-          );
           await createRentalFromUrl(pidx, transactionId, amount, currentUser);
           return;
         }
 
         // If still no authentication, we need to handle this gracefully
         if (!currentUser?.token) {
-          addLog("ERROR: Cannot authenticate user for payment verification");
-
           // Check if we have enough info to create rental without backend verification
           if (paymentStatus === "Completed" && amount) {
-            addLog(
-              "Attempting to create rental without authentication (using session data)"
-            );
             await createRentalWithoutAuth(pidx, transactionId, amount);
             return;
           }
@@ -149,19 +95,15 @@ export default function PaymentCallback() {
               "Authentication session expired. Please log in and contact support with your payment reference: " +
                 pidx
             );
-            // Don't auto-redirect to login, show the pidx for reference
           }
           return;
         }
 
-        addLog("Authentication check passed");
         if (mountedRef.current) {
           setMessage("Verifying payment with Khalti...");
         }
 
         // Verify payment with backend
-        addLog("Making API call to verify payment...");
-
         const verifyResponse = await fetch(
           "http://localhost:8000/api/payment/khalti/verify",
           {
@@ -174,25 +116,14 @@ export default function PaymentCallback() {
           }
         );
 
-        addLog(
-          `API Response Status: ${verifyResponse.status} ${verifyResponse.statusText}`
-        );
-
-        // Check if response is ok
         if (!verifyResponse.ok) {
           const errorText = await verifyResponse.text();
-          addLog(`API Error Response: ${errorText}`);
           throw new Error(
             `Payment verification failed (${verifyResponse.status}): ${errorText}`
           );
         }
 
         const verifyData = await verifyResponse.json();
-        addLog(`API Success Response: ${JSON.stringify(verifyData)}`);
-
-        if (mountedRef.current) {
-          setDebugInfo((prev) => ({ ...prev, verifyData }));
-        }
 
         // Handle successful verification
         if (verifyData.success) {
@@ -201,7 +132,6 @@ export default function PaymentCallback() {
             verifyData.status === "Completed"
           ) {
             if (verifyData.rental_created && verifyData.rental_id) {
-              addLog("✅ Rental already created by backend.");
               if (mountedRef.current) {
                 setStatus("success");
                 setMessage(
@@ -210,11 +140,10 @@ export default function PaymentCallback() {
                 sessionStorage.removeItem("pendingRental");
                 setTimeout(() => navigate("/rentals"), 3000);
               }
-              return; // ✅ STOP HERE!
+              return;
             }
 
             // Backend did NOT create rental → fallback
-            addLog("⚠️ Rental not created by backend, attempting fallback.");
             if (mountedRef.current) {
               setMessage("Payment verified. Creating your rental...");
             }
@@ -225,7 +154,6 @@ export default function PaymentCallback() {
               currentUser
             );
           } else {
-            addLog(`Payment status is not completed: ${verifyData.status}`);
             // Payment not completed
             if (mountedRef.current) {
               setStatus("error");
@@ -233,7 +161,6 @@ export default function PaymentCallback() {
             }
           }
         } else {
-          addLog(`Payment verification failed: ${verifyData.message}`);
           // Verification failed
           if (mountedRef.current) {
             setStatus("error");
@@ -241,53 +168,38 @@ export default function PaymentCallback() {
           }
         }
       } catch (error) {
-        addLog(`CATCH ERROR: ${error.message}`);
         console.error("Payment processing error:", error);
         if (mountedRef.current) {
           setStatus("error");
           setMessage(`Error: ${error.message}`);
-          setDebugInfo((prev) => ({ ...prev, error: error.message }));
         }
       }
     };
 
     const createRentalWithoutAuth = async (pidx, transactionId, amount) => {
       try {
-        addLog("Creating rental without authentication using session data...");
-
         // First try to get rental data from session storage
         let rentalData = JSON.parse(
           sessionStorage.getItem("pendingRental") || "{}"
         );
 
-        addLog(`Rental data from session: ${JSON.stringify(rentalData)}`);
-
         // If no session data, try to extract from URL parameters (merchant_extra)
         if (!rentalData.productId) {
-          addLog(
-            "No rental data in session, trying to extract from URL parameters..."
-          );
-
           const merchantExtra = searchParams.get("merchant_extra");
           if (merchantExtra) {
             try {
               const extraData = JSON.parse(merchantExtra);
-              addLog(`Merchant extra data: ${JSON.stringify(extraData)}`);
-
               if (extraData.rental_data) {
                 rentalData = {
                   productId: extraData.rental_data.productId,
                   startDate: extraData.rental_data.startDate,
                   endDate: extraData.rental_data.endDate,
                   rentalDays: extraData.rental_data.rentalDays,
-                  totalAmount: parseInt(amount) / 100, // Convert paisa to rupees
+                  totalAmount: parseInt(amount) / 100,
                 };
-                addLog(
-                  `Extracted rental data from merchant_extra: ${JSON.stringify(rentalData)}`
-                );
               }
             } catch (e) {
-              addLog(`Error parsing merchant_extra: ${e.message}`);
+              // Silent error handling
             }
           }
         }
@@ -306,7 +218,7 @@ export default function PaymentCallback() {
         try {
           userInfo = storedUser ? JSON.parse(storedUser) : null;
         } catch (e) {
-          addLog("Could not parse stored user info");
+          // Silent error handling
         }
 
         const rentalRequestData = {
@@ -314,27 +226,20 @@ export default function PaymentCallback() {
           startDate: rentalData.startDate,
           endDate: rentalData.endDate,
           rentalDays: rentalData.rentalDays,
-          totalAmount: parseInt(amount) / 100, // Convert paisa to rupees
+          totalAmount: parseInt(amount) / 100,
           paymentId: pidx,
           transactionId: transactionId,
           paymentMethod: "khalti",
           paymentStatus: "completed",
-          // Include user info if available
           ...(userInfo && { userId: userInfo.id }),
         };
 
-        addLog(
-          `Attempting rental creation without auth: ${JSON.stringify(rentalRequestData)}`
-        );
-
-        // Try with token first if available
         const headers = {
           "Content-Type": "application/json",
         };
 
         if (storedToken) {
           headers.Authorization = `Bearer ${storedToken}`;
-          addLog("Using stored token for request");
         }
 
         const createResponse = await fetch(
@@ -346,14 +251,8 @@ export default function PaymentCallback() {
           }
         );
 
-        addLog(`Rental creation response status: ${createResponse.status}`);
-
         if (!createResponse.ok) {
-          const errorText = await createResponse.text();
-          addLog(`Rental creation error response: ${errorText}`);
-
           // Try calling a special endpoint for completed payments
-          addLog("Trying special payment completion endpoint...");
           return await tryPaymentCompletionEndpoint(
             pidx,
             transactionId,
@@ -363,10 +262,8 @@ export default function PaymentCallback() {
         }
 
         const rentalResponse = await createResponse.json();
-        addLog(`Rental creation response: ${JSON.stringify(rentalResponse)}`);
 
         if (rentalResponse.success) {
-          addLog("Rental created successfully without auth");
           if (mountedRef.current) {
             setStatus("success");
             setMessage("Payment successful! Your rental has been confirmed.");
@@ -377,7 +274,6 @@ export default function PaymentCallback() {
           throw new Error(rentalResponse.message || "Failed to create rental");
         }
       } catch (error) {
-        addLog(`Rental creation without auth failed: ${error.message}`);
         if (mountedRef.current) {
           setStatus("error");
           setMessage(
@@ -394,8 +290,6 @@ export default function PaymentCallback() {
       rentalData
     ) => {
       try {
-        addLog("Trying payment completion endpoint as final fallback...");
-
         const completionData = {
           pidx: pidx,
           transactionId: transactionId,
@@ -404,8 +298,6 @@ export default function PaymentCallback() {
           paymentStatus: "completed",
           paymentMethod: "khalti",
         };
-
-        addLog(`Payment completion data: ${JSON.stringify(completionData)}`);
 
         const completionResponse = await fetch(
           "http://localhost:8000/api/payment/complete-rental",
@@ -418,18 +310,10 @@ export default function PaymentCallback() {
           }
         );
 
-        addLog(
-          `Payment completion response status: ${completionResponse.status}`
-        );
-
         if (completionResponse.ok) {
           const completionResult = await completionResponse.json();
-          addLog(
-            `Payment completion response: ${JSON.stringify(completionResult)}`
-          );
 
           if (completionResult.success) {
-            addLog("Rental created via payment completion endpoint");
             if (mountedRef.current) {
               setStatus("success");
               setMessage("Payment successful! Your rental has been confirmed.");
@@ -442,7 +326,6 @@ export default function PaymentCallback() {
 
         throw new Error("Payment completion endpoint also failed");
       } catch (error) {
-        addLog(`Payment completion endpoint failed: ${error.message}`);
         throw error;
       }
     };
@@ -454,12 +337,9 @@ export default function PaymentCallback() {
       currentUser
     ) => {
       try {
-        addLog("Creating rental directly from URL parameters...");
         const rentalData = JSON.parse(
           sessionStorage.getItem("pendingRental") || "{}"
         );
-
-        addLog(`Rental data from session: ${JSON.stringify(rentalData)}`);
 
         if (!rentalData.productId) {
           throw new Error(
@@ -473,16 +353,13 @@ export default function PaymentCallback() {
           startDate: rentalData.startDate,
           endDate: rentalData.endDate,
           rentalDays: rentalData.rentalDays,
-          totalAmount: parseInt(amount) / 100, // Convert paisa to rupees
+          totalAmount: parseInt(amount) / 100,
           paymentId: pidx,
           transactionId: transactionId,
           paymentMethod: "khalti",
           paymentStatus: "completed",
         };
 
-        addLog(
-          `Creating rental with URL data: ${JSON.stringify(rentalRequestData)}`
-        );
         const checkResponse = await fetch(
           `http://localhost:8000/api/rentals/by-payment/${pidx}`,
           {
@@ -496,12 +373,10 @@ export default function PaymentCallback() {
         if (checkResponse.ok) {
           const checkData = await checkResponse.json();
           if (checkData.exists) {
-            addLog(
-              "❌ Rental already exists for this payment. Skipping creation."
-            );
             return;
           }
         }
+
         const createResponse = await fetch(
           "http://localhost:8000/api/rentals/create",
           {
@@ -514,21 +389,16 @@ export default function PaymentCallback() {
           }
         );
 
-        addLog(`Rental creation response status: ${createResponse.status}`);
-
         if (!createResponse.ok) {
           const errorText = await createResponse.text();
-          addLog(`Rental creation error: ${errorText}`);
           throw new Error(
             `Rental creation failed (${createResponse.status}): ${errorText}`
           );
         }
 
         const rentalResponse = await createResponse.json();
-        addLog(`Rental creation response: ${JSON.stringify(rentalResponse)}`);
 
         if (rentalResponse.success) {
-          addLog("Rental created successfully from URL");
           if (mountedRef.current) {
             setStatus("success");
             setMessage("Payment successful! Your rental has been confirmed.");
@@ -539,12 +409,10 @@ export default function PaymentCallback() {
           throw new Error(rentalResponse.message || "Failed to create rental");
         }
       } catch (error) {
-        addLog(`Direct rental creation error: ${error.message}`);
         // Fall back to normal verification process
         if (mountedRef.current) {
           setMessage("Verifying payment with backend...");
         }
-        // Don't set error status, let the normal flow handle it
       }
     };
 
@@ -555,12 +423,9 @@ export default function PaymentCallback() {
       currentUser
     ) => {
       try {
-        addLog("Starting rental creation fallback...");
         const rentalData = JSON.parse(
           sessionStorage.getItem("pendingRental") || "{}"
         );
-
-        addLog(`Rental data from session: ${JSON.stringify(rentalData)}`);
 
         if (!rentalData.productId) {
           throw new Error(
@@ -583,10 +448,6 @@ export default function PaymentCallback() {
           paymentStatus: "completed",
         };
 
-        addLog(
-          `Creating rental with data: ${JSON.stringify(rentalRequestData)}`
-        );
-
         const checkResponse = await fetch(
           `http://localhost:8000/api/rentals/by-payment/${pidx}`,
           {
@@ -600,9 +461,6 @@ export default function PaymentCallback() {
         if (checkResponse.ok) {
           const checkData = await checkResponse.json();
           if (checkData.exists) {
-            addLog(
-              "❌ Rental already exists for this payment. Skipping creation."
-            );
             return;
           }
         }
@@ -619,21 +477,16 @@ export default function PaymentCallback() {
           }
         );
 
-        addLog(`Rental creation response status: ${createResponse.status}`);
-
         if (!createResponse.ok) {
           const errorText = await createResponse.text();
-          addLog(`Rental creation error: ${errorText}`);
           throw new Error(
             `Rental creation failed (${createResponse.status}): ${errorText}`
           );
         }
 
         const rentalResponse = await createResponse.json();
-        addLog(`Rental creation response: ${JSON.stringify(rentalResponse)}`);
 
         if (rentalResponse.success) {
-          addLog("Rental created successfully");
           if (mountedRef.current) {
             setStatus("success");
             setMessage("Payment successful! Your rental has been confirmed.");
@@ -644,7 +497,6 @@ export default function PaymentCallback() {
           throw new Error(rentalResponse.message || "Failed to create rental");
         }
       } catch (error) {
-        addLog(`Rental creation error: ${error.message}`);
         console.error("Rental creation error:", error);
         if (mountedRef.current) {
           setStatus("error");
@@ -655,15 +507,12 @@ export default function PaymentCallback() {
       }
     };
 
-    // Start processing immediately
-    addLog("Starting payment processing immediately...");
     processPayment();
 
     return () => {
-      addLog("Component unmounting, cleaning up...");
       mountedRef.current = false;
     };
-  }, [searchParams, user?.token]); // Keep dependencies minimal
+  }, [searchParams, user?.token]);
 
   const getStatusIcon = () => {
     switch (status) {
@@ -759,7 +608,7 @@ export default function PaymentCallback() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div
-        className={`max-w-4xl w-full ${getBackgroundColor()} rounded-lg shadow-lg p-8 text-center`}
+        className={`max-w-md w-full ${getBackgroundColor()} rounded-lg shadow-lg p-8 text-center`}
       >
         {getStatusIcon()}
 
@@ -771,29 +620,6 @@ export default function PaymentCallback() {
         </h2>
 
         <p className={`${getStatusColor()} mb-6`}>{message}</p>
-
-        {/* Debug Information - Always show for debugging */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Debug Info */}
-          {debugInfo && (
-            <div className="bg-gray-100 p-3 rounded text-xs text-left max-h-60 overflow-y-auto">
-              <strong>Debug Info:</strong>
-              <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
-            </div>
-          )}
-
-          {/* Logs */}
-          <div className="bg-gray-100 p-3 rounded text-xs text-left max-h-60 overflow-y-auto">
-            <strong>Execution Logs:</strong>
-            <div className="mt-2">
-              {logs.map((log, index) => (
-                <div key={index} className="mb-1">
-                  {log}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
 
         <div className="space-y-3">
           {status === "success" && (
