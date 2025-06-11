@@ -17,7 +17,6 @@ const ImageWithFallback = ({ src, alt, className }) => {
   const handleError = () => {
     if (!hasError) {
       setHasError(true);
-      // Use a data URL for a simple placeholder instead of trying to load a file
       setImgSrc(
         "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K"
       );
@@ -50,15 +49,10 @@ export default function RentalHistory() {
 
   // Get the correct API base URL
   const getApiUrl = () => {
-    // Try to determine the correct API URL
     const currentUrl = window.location.origin;
-
-    // If we're on localhost:3000 (React dev server), backend is likely on :8000
     if (currentUrl.includes("localhost:3000")) {
       return "http://localhost:8000";
     }
-
-    // Otherwise, assume same origin
     return currentUrl;
   };
 
@@ -73,17 +67,13 @@ export default function RentalHistory() {
   const fetchRentals = async () => {
     try {
       setLoading(true);
-      setError(""); // Clear previous errors
+      setError("");
 
       const baseUrl = getApiUrl();
       const url =
         filter === "all"
           ? `${baseUrl}/api/rentals`
           : `${baseUrl}/api/rentals?status=${filter}`;
-
-      console.log("Fetching rentals from:", url);
-      console.log("User:", user);
-      console.log("Token exists:", !!getToken());
 
       const response = await fetch(url, {
         headers: {
@@ -92,24 +82,9 @@ export default function RentalHistory() {
         },
       });
 
-      console.log("Response status:", response.status);
-      console.log("Response ok:", response.ok);
-
       if (response.ok) {
         const data = await response.json();
-        console.log("API Response data:", data);
-
-        // Handle different possible response structures
         const rentalsArray = data.rentals || data.data || data || [];
-        console.log("Rentals array:", rentalsArray);
-        console.log("Rentals count:", rentalsArray.length);
-
-        // Log the first rental to see its structure
-        if (rentalsArray.length > 0) {
-          console.log("First rental structure:", rentalsArray[0]);
-          console.log("Product data:", rentalsArray[0].product);
-          console.log("Product ID:", rentalsArray[0].productId);
-        }
 
         setRentals(rentalsArray);
 
@@ -131,11 +106,9 @@ export default function RentalHistory() {
         const errorMessage =
           errorData.message ||
           `HTTP ${response.status}: ${response.statusText}`;
-        console.error("API Error:", errorMessage);
         setError(errorMessage);
       }
     } catch (err) {
-      console.error("Fetch Error:", err);
       setError(`Network error: ${err.message}`);
     } finally {
       setLoading(false);
@@ -158,13 +131,12 @@ export default function RentalHistory() {
       );
 
       if (response.ok) {
-        fetchRentals(); // Refresh list
+        fetchRentals();
       } else {
         const errorData = await response.json().catch(() => ({}));
         setError(errorData.message || "Failed to update status");
       }
     } catch (err) {
-      console.error("Update status error:", err);
       setError("Failed to update status");
     }
   };
@@ -219,7 +191,6 @@ export default function RentalHistory() {
 
   // Helper function to get product info - handles different data structures
   const getProductInfo = (rental) => {
-    // Check if product is populated
     if (rental.product && typeof rental.product === "object") {
       return {
         title: rental.product.title || rental.product.name || "Unknown Product",
@@ -228,7 +199,6 @@ export default function RentalHistory() {
       };
     }
 
-    // Check if we have product info directly in rental
     if (rental.productTitle || rental.productName) {
       return {
         title: rental.productTitle || rental.productName || "Unknown Product",
@@ -237,7 +207,6 @@ export default function RentalHistory() {
       };
     }
 
-    // Fallback
     return {
       title: `Product ${rental.productId || "Unknown"}`,
       description: "Product details not available",
@@ -317,34 +286,6 @@ export default function RentalHistory() {
           <p className="text-gray-600">
             Manage your rental history and active rentals
           </p>
-
-          {/* Debug Info - Enhanced for better debugging */}
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
-            <p>
-              <strong>Debug Info:</strong>
-            </p>
-            <p>User: {user ? "Logged in" : "Not logged in"}</p>
-            <p>User ID: {user?.userId || user?.id || "No ID found"}</p>
-            <p>Filter: {filter}</p>
-            <p>Rentals loaded: {rentals.length}</p>
-            <p>API Base URL: {getApiUrl()}</p>
-            <p>
-              Current API URL:{" "}
-              {filter === "all"
-                ? `${getApiUrl()}/api/rentals`
-                : `${getApiUrl()}/api/rentals?status=${filter}`}
-            </p>
-            {rentals.length > 0 && (
-              <div className="mt-2 p-2 bg-gray-100 rounded">
-                <p>
-                  <strong>Sample rental data:</strong>
-                </p>
-                <pre className="text-xs overflow-auto max-h-32">
-                  {JSON.stringify(rentals[0], null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Stats Cards */}
@@ -427,7 +368,6 @@ export default function RentalHistory() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-4 flex-1">
-                      {/* Updated image handling */}
                       <ImageWithFallback
                         src={
                           productInfo.imageUrl

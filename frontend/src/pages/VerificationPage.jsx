@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 
@@ -7,8 +7,8 @@ const VerificationPage = () => {
   const { email: paramEmail } = useParams();
 
   const [userInfo, setUserInfo] = useState(null);
-  const [emailOTP, setEmailOTP] = useState("");
-  const [phoneOTP, setPhoneOTP] = useState("");
+  const [emailOTP, setEmailOTP] = useState(["", "", "", "", "", ""]);
+  const [phoneOTP, setPhoneOTP] = useState(["", "", "", "", "", ""]);
   const [mockMode, setMockMode] = useState(false);
   const [loading, setLoading] = useState({
     emailSend: false,
@@ -18,6 +18,10 @@ const VerificationPage = () => {
   });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // Refs for input fields
+  const emailInputRefs = useRef([]);
+  const phoneInputRefs = useRef([]);
 
   useEffect(() => {
     fetchVerificationStatus();
@@ -29,12 +33,20 @@ const VerificationPage = () => {
         paramEmail || localStorage.getItem("pendingVerificationEmail");
       if (!email) return navigate("/register");
 
+      if (!localStorage.getItem("pendingVerificationEmail")) {
+        localStorage.setItem("pendingVerificationEmail", email);
+      }
+
       const response = await axios.get(
         `http://localhost:8000/api/verification/status/${email}`
       );
       setUserInfo(response.data);
 
-      if (response.data.isActive) navigate("/login");
+      if (response.data.isActive) {
+        console.log("User is already active, redirecting to KYC info");
+        sessionStorage.setItem("justVerified", "true");
+        navigate("/kyc-info");
+      }
     } catch (err) {
       setError("Failed to fetch verification status");
     }
@@ -48,13 +60,8 @@ const VerificationPage = () => {
     setMessage(successMsg);
     setError("");
 
-    // Check if response indicates mock mode
     if (response.data.mockMode) {
       setMockMode(true);
-    }
-
-    if (response.data.isActive) {
-      setTimeout(() => navigate("/login"), 1500);
     }
   };
 
@@ -63,16 +70,93 @@ const VerificationPage = () => {
     setMessage("");
   };
 
+  const handleOTPChange = (index, value, otpArray, setOTP, inputRefs) => {
+    // Handle pasted content
+    if (value.length > 1) {
+      const digits = value.replace(/\D/g, "").slice(0, 6);
+      const newOTP = [...otpArray];
+      for (let i = 0; i < 6; i++) {
+        newOTP[i] = digits[i] || "";
+      }
+      setOTP(newOTP);
+
+      // Focus the next empty input or the last one
+      const nextEmptyIndex = newOTP.findIndex((digit) => !digit);
+      const focusIndex = nextEmptyIndex !== -1 ? nextEmptyIndex : 5;
+      setTimeout(() => inputRefs.current[focusIndex]?.focus(), 0);
+      return;
+    }
+
+    const newOTP = [...otpArray];
+    newOTP[index] = value;
+    setOTP(newOTP);
+
+    // Move to next input if value is entered and not the last input
+    if (value && index < 5) {
+      setTimeout(() => inputRefs.current[index + 1]?.focus(), 0);
+    }
+  };
+
+  const handleOTPKeyDown = (e, index, otpArray, setOTP, inputRefs) => {
+    // Handle backspace
+    if (e.key === "Backspace") {
+      if (!otpArray[index] && index > 0) {
+        // If current box is empty, move to previous box
+        setTimeout(() => inputRefs.current[index - 1]?.focus(), 0);
+      } else if (otpArray[index]) {
+        // If current box has content, clear it
+        const newOTP = [...otpArray];
+        newOTP[index] = "";
+        setOTP(newOTP);
+      }
+    }
+    // Handle delete key
+    else if (e.key === "Delete") {
+      const newOTP = [...otpArray];
+      newOTP[index] = "";
+      setOTP(newOTP);
+    }
+    // Handle arrow keys
+    else if (e.key === "ArrowLeft" && index > 0) {
+      setTimeout(() => inputRefs.current[index - 1]?.focus(), 0);
+    } else if (e.key === "ArrowRight" && index < 5) {
+      setTimeout(() => inputRefs.current[index + 1]?.focus(), 0);
+    }
+    // Handle paste
+    else if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      navigator.clipboard.readText().then((text) => {
+        const digits = text.replace(/\D/g, "").slice(0, 6);
+        const newOTP = [...otpArray];
+        for (let i = 0; i < 6; i++) {
+          newOTP[i] = digits[i] || "";
+        }
+        setOTP(newOTP);
+
+        // Focus the next empty input or the last one
+        const nextEmptyIndex = newOTP.findIndex((digit) => !digit);
+        const focusIndex = nextEmptyIndex !== -1 ? nextEmptyIndex : 5;
+        setTimeout(() => inputRefs.current[focusIndex]?.focus(), 0);
+      });
+    }
+  };
+
   const sendEmailOTP = async () => {
     setLoadingState("emailSend", true);
     try {
-      await axios.post(
+      const response = await axios.post(
         "http://localhost:8000/api/verification/send-email-verification",
         {
           email: userInfo.user.email,
         }
       );
       handleResponse({ data: {} }, "Verification code sent to your email!");
+      // Focus the first email input after sending OTP
+      setTimeout(() => {
+        if (emailInputRefs.current[0]) {
+          emailInputRefs.current[0].focus();
+        }
+      }, 100);
     } catch (err) {
       handleError(err);
     } finally {
@@ -82,7 +166,8 @@ const VerificationPage = () => {
 
   const verifyEmailOTP = async (e) => {
     e.preventDefault();
-    if (!emailOTP.trim()) return;
+    const otpString = emailOTP.join("");
+    if (!otpString.trim() || otpString.length !== 6) return;
 
     setLoadingState("emailVerify", true);
     try {
@@ -90,9 +175,11 @@ const VerificationPage = () => {
         "http://localhost:8000/api/verification/verify-email-otp",
         {
           email: userInfo.user.email,
-          otp: emailOTP,
+          otp: otpString,
         }
       );
+
+      console.log("Email verification response:", response.data);
 
       setUserInfo((prev) => ({
         ...prev,
@@ -100,8 +187,21 @@ const VerificationPage = () => {
         isActive: response.data.isActive,
       }));
 
-      setEmailOTP("");
-      handleResponse(response, "Email verified successfully!");
+      setEmailOTP(["", "", "", "", "", ""]);
+
+      if (response.data.isActive) {
+        setMessage("Email verified successfully! Redirecting to KYC setup...");
+        sessionStorage.setItem("justVerified", "true");
+        setTimeout(() => navigate("/kyc-info"), 2000);
+      } else {
+        setMessage(
+          "Email verified successfully! Please verify your phone to complete activation."
+        );
+      }
+
+      if (response.data.mockMode) {
+        setMockMode(true);
+      }
     } catch (err) {
       handleError(err);
     } finally {
@@ -119,7 +219,6 @@ const VerificationPage = () => {
         }
       );
 
-      // Handle mock mode response
       if (response.data.mockMode || response.data.otp) {
         setMockMode(true);
         handleResponse(
@@ -129,6 +228,12 @@ const VerificationPage = () => {
       } else {
         handleResponse(response, "OTP sent to your phone!");
       }
+      // Focus the first phone input after sending OTP
+      setTimeout(() => {
+        if (phoneInputRefs.current[0]) {
+          phoneInputRefs.current[0].focus();
+        }
+      }, 100);
     } catch (err) {
       handleError(err);
     } finally {
@@ -138,7 +243,8 @@ const VerificationPage = () => {
 
   const verifyPhoneOTP = async (e) => {
     e.preventDefault();
-    if (!phoneOTP.trim()) return;
+    const otpString = phoneOTP.join("");
+    if (!otpString.trim() || otpString.length !== 6) return;
 
     setLoadingState("phoneVerify", true);
     try {
@@ -146,9 +252,11 @@ const VerificationPage = () => {
         "http://localhost:8000/api/verification/verify-phone",
         {
           phone: userInfo.user.phone,
-          otp: phoneOTP,
+          otp: otpString,
         }
       );
+
+      console.log("Phone verification response:", response.data);
 
       setUserInfo((prev) => ({
         ...prev,
@@ -156,8 +264,17 @@ const VerificationPage = () => {
         isActive: response.data.isActive,
       }));
 
-      setPhoneOTP("");
-      handleResponse(response, "Phone verified successfully!");
+      setPhoneOTP(["", "", "", "", "", ""]);
+
+      if (response.data.isActive) {
+        setMessage("Phone verified successfully! Redirecting to KYC setup...");
+        sessionStorage.setItem("justVerified", "true");
+        setTimeout(() => navigate("/kyc-info"), 2000);
+      } else {
+        setMessage(
+          "Phone verified successfully! Please verify your email to complete activation."
+        );
+      }
     } catch (err) {
       handleError(err);
     } finally {
@@ -167,145 +284,402 @@ const VerificationPage = () => {
 
   if (!userInfo) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mb-2"></div>
+          <p className="text-gray-600">Loading your verification details...</p>
+        </div>
       </div>
     );
   }
 
+  const OTPInput = ({ otp, setOTP, inputRefs, label, id }) => (
+    <div>
+      <label
+        htmlFor={`${id}-0`}
+        className="block text-sm font-medium text-gray-700 mb-2"
+      >
+        {label}
+      </label>
+      <div className="flex space-x-2 justify-center">
+        {otp.map((digit, index) => (
+          <input
+            key={index}
+            id={`${id}-${index}`}
+            ref={(el) => (inputRefs.current[index] = el)}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength="1"
+            value={digit}
+            onChange={(e) =>
+              handleOTPChange(index, e.target.value, otp, setOTP, inputRefs)
+            }
+            onKeyDown={(e) =>
+              handleOTPKeyDown(e, index, otp, setOTP, inputRefs)
+            }
+            onFocus={(e) => e.target.select()}
+            className="w-12 h-12 text-center text-lg font-semibold border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        ))}
+      </div>
+    </div>
+  );
+
   const VerificationSection = ({ title, verified, contact, children }) => (
-    <div className="mb-6 p-4 border rounded-lg">
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-medium">{title}</span>
+    <div className="mb-6 p-6 bg-white rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center">
+          <div
+            className={`mr-3 p-2 rounded-full ${verified ? "bg-green-100" : "bg-blue-100"}`}
+          >
+            {verified ? (
+              <svg
+                className="w-5 h-5 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M5 13l4 4L19 7"
+                ></path>
+              </svg>
+            ) : (
+              <svg
+                className="w-5 h-5 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                ></path>
+              </svg>
+            )}
+          </div>
+          <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+        </div>
         <span
-          className={`text-sm ${verified ? "text-green-600" : "text-red-600"}`}
+          className={`px-3 py-1 rounded-full text-xs font-medium ${verified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
         >
-          {verified ? "✓ Verified" : "✗ Pending"}
+          {verified ? "Verified" : "Pending"}
         </span>
       </div>
-      <p className="text-sm text-gray-600 mb-3">{contact}</p>
+      <p className="text-sm text-gray-600 mb-4 ml-11">{contact}</p>
       {!verified && children}
     </div>
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
-          Verify Your Account
-        </h2>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full mx-auto">
+        <div className="text-center mb-8">
+          <div className="mx-auto h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+            <svg
+              className="h-6 w-6 text-blue-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              ></path>
+            </svg>
+          </div>
+          <h2 className="text-3xl font-extrabold text-gray-900">
+            Verify Your Account
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Hello{" "}
+            <span className="font-medium text-blue-600">
+              {userInfo.user.fullName}
+            </span>
+            ! Please verify your contact details to activate your account.
+          </p>
+        </div>
 
-        {/* Development Mode Banner */}
         {mockMode && (
-          <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
-            <div className="flex items-center">
-              <span className="text-lg mr-2">🛠️</span>
-              <div>
-                <p className="font-medium">Development Mode</p>
-                <p className="text-sm">
-                  SMS codes are shown in console and response
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-yellow-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                ></path>
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">
+                Development Mode
+              </h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p>
+                  SMS codes are shown in console and response for testing
+                  purposes.
                 </p>
               </div>
             </div>
           </div>
         )}
 
-        <div className="mb-6">
-          <p className="text-gray-600 text-center mb-4">
-            Hello {userInfo.user.fullName}! Please verify your email and phone
-            to activate your account.
-          </p>
-        </div>
-
         {message && (
-          <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-            {message}
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-green-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                ></path>
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-green-800">{message}</p>
+            </div>
           </div>
         )}
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-red-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                ></path>
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-red-800">{error}</p>
+            </div>
           </div>
         )}
 
-        <VerificationSection
-          title="Email Verification"
-          verified={userInfo.emailVerified}
-          contact={userInfo.user.email}
-        >
-          <button
-            onClick={sendEmailOTP}
-            disabled={loading.emailSend}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50 mb-3"
+        <div className="bg-white py-8 px-6 shadow rounded-lg">
+          <VerificationSection
+            title="Email Verification"
+            verified={userInfo.emailVerified}
+            contact={userInfo.user.email}
           >
-            {loading.emailSend ? "Sending..." : "Send Email Code"}
-          </button>
-
-          <form onSubmit={verifyEmailOTP}>
-            <input
-              type="text"
-              placeholder="Enter 6-digit email code"
-              value={emailOTP}
-              onChange={(e) => setEmailOTP(e.target.value)}
-              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-              maxLength="6"
-            />
             <button
-              type="submit"
-              disabled={loading.emailVerify || !emailOTP.trim()}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50"
+              onClick={sendEmailOTP}
+              disabled={loading.emailSend}
+              className={`w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${loading.emailSend ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mb-4`}
             >
-              {loading.emailVerify ? "Verifying..." : "Verify Email"}
+              {loading.emailSend ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="-ml-1 mr-2 h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    ></path>
+                  </svg>
+                  Send Email Code
+                </>
+              )}
             </button>
-          </form>
-        </VerificationSection>
 
-        <VerificationSection
-          title="Phone Verification"
-          verified={userInfo.phoneVerified}
-          contact={userInfo.user.phone}
-        >
-          <button
-            onClick={sendPhoneOTP}
-            disabled={loading.phoneSend}
-            className="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 disabled:opacity-50 mb-3"
+            <form onSubmit={verifyEmailOTP} className="space-y-4">
+              <OTPInput
+                otp={emailOTP}
+                setOTP={setEmailOTP}
+                inputRefs={emailInputRefs}
+                label="Email Verification Code"
+                id="email-otp"
+              />
+              <button
+                type="submit"
+                disabled={loading.emailVerify || emailOTP.join("").length !== 6}
+                className={`w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${loading.emailVerify || emailOTP.join("").length !== 6 ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+              >
+                {loading.emailVerify ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Verifying...
+                  </>
+                ) : (
+                  "Verify Email"
+                )}
+              </button>
+            </form>
+          </VerificationSection>
+
+          <VerificationSection
+            title="Phone Verification"
+            verified={userInfo.phoneVerified}
+            contact={userInfo.user.phone}
           >
-            {loading.phoneSend ? "Sending..." : "Send SMS Code"}
-          </button>
-
-          <form onSubmit={verifyPhoneOTP}>
-            <input
-              type="text"
-              placeholder="Enter 6-digit SMS code"
-              value={phoneOTP}
-              onChange={(e) => setPhoneOTP(e.target.value)}
-              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-              maxLength="6"
-            />
             <button
-              type="submit"
-              disabled={loading.phoneVerify || !phoneOTP.trim()}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50"
+              onClick={sendPhoneOTP}
+              disabled={loading.phoneSend}
+              className={`w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${loading.phoneSend ? "bg-green-400" : "bg-green-600 hover:bg-green-700"} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 mb-4`}
             >
-              {loading.phoneVerify ? "Verifying..." : "Verify Phone"}
+              {loading.phoneSend ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="-ml-1 mr-2 h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                    ></path>
+                  </svg>
+                  Send SMS Code
+                </>
+              )}
             </button>
-          </form>
-        </VerificationSection>
 
-        {userInfo.isActive && (
-          <div className="text-center">
-            <p className="text-green-600 font-medium mb-3">
-              Account activated successfully!
-            </p>
-            <button
-              onClick={() => navigate("/login")}
-              className="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700"
-            >
-              Continue to Login
-            </button>
-          </div>
-        )}
+            <form onSubmit={verifyPhoneOTP} className="space-y-4">
+              <OTPInput
+                otp={phoneOTP}
+                setOTP={setPhoneOTP}
+                inputRefs={phoneInputRefs}
+                label="SMS Verification Code"
+                id="phone-otp"
+              />
+              <button
+                type="submit"
+                disabled={loading.phoneVerify || phoneOTP.join("").length !== 6}
+                className={`w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${loading.phoneVerify || phoneOTP.join("").length !== 6 ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+              >
+                {loading.phoneVerify ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Verifying...
+                  </>
+                ) : (
+                  "Verify Phone"
+                )}
+              </button>
+            </form>
+          </VerificationSection>
+        </div>
       </div>
     </div>
   );

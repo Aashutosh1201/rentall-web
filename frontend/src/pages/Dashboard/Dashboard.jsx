@@ -18,6 +18,7 @@ import {
   FiClock,
 } from "react-icons/fi";
 import { Outlet } from "react-router-dom"; // For nested routing if needed
+import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 
 // Mock Auth Context
@@ -28,6 +29,7 @@ const useAuth = () => ({
 
 // Dashboard Home Component
 const DashboardHome = () => {
+  const navigate = useNavigate();
   const stats = [
     {
       title: "Total Products",
@@ -92,7 +94,10 @@ const DashboardHome = () => {
         <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
           Welcome back, Aashutosh! 👋
         </h2>
-        <button className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+        <button
+          className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+          onClick={() => navigate("/create")}
+        >
           <FiPlus className="mr-2" />
           Add Product
         </button>

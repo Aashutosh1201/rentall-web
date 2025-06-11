@@ -374,4 +374,18 @@ router.get("/status/:status", verifyToken, async (req, res) => {
   }
 });
 
+router.get("/by-payment/:paymentId", verifyToken, async (req, res) => {
+  try {
+    const rental = await Rental.findOne({ paymentId: req.params.paymentId });
+    if (rental) {
+      return res.json({ exists: true, rentalId: rental._id });
+    } else {
+      return res.json({ exists: false });
+    }
+  } catch (error) {
+    console.error("Error checking rental:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 module.exports = router;
