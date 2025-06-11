@@ -6,6 +6,8 @@ const KYCForm = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -19,24 +21,17 @@ const KYCForm = () => {
   });
 
   useEffect(() => {
-    // Get user data from auth context or localStorage
     if (user) {
       setUserEmail(user.email);
-      // Pre-fill form with user data if available
       setFormData((prev) => ({
         ...prev,
         fullName: user.fullName || "",
         phone: user.phone || "",
       }));
     } else {
-      // Check if user just completed verification
       const pendingEmail = localStorage.getItem("pendingVerificationEmail");
-      if (pendingEmail) {
-        setUserEmail(pendingEmail);
-      } else {
-        // If no user data available, redirect to login
-        navigate("/login");
-      }
+      if (pendingEmail) setUserEmail(pendingEmail);
+      else navigate("/login");
     }
   }, [user, navigate]);
 
@@ -49,53 +44,97 @@ const KYCForm = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const validateForm = () => {
+    if (!/^(97|98)\d{8}$/.test(formData.phone)) {
+      setError("Phone number must be 10 digits and start with 97 or 98.");
+      return false;
+    }
+
+    for (const key in formData) {
+      if (
+        (formData[key] === "" || formData[key] == null) &&
+        key !== "idDocument" &&
+        key !== "selfie"
+      ) {
+        setError(`Field "${key}" is required.`);
+        return false;
+      }
+    }
+
+    if (!formData.idDocument || !formData.selfie) {
+      setError("Both ID Document and Selfie must be uploaded.");
+      return false;
+    }
+
+    setError("");
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+
+    if (!validateForm()) {
+      setIsSubmitting(false);
+      return;
+    }
 
     const payload = new FormData();
-
-    // Add email to the payload
     payload.append("email", userEmail);
-
-    // Add all form data
     for (const key in formData) {
       payload.append(key, formData[key]);
     }
 
-    fetch(`http://localhost:8000/api/kyc`, {
-      method: "POST",
-      body: payload,
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        alert("KYC submitted successfully!");
-
-        // Clear verification flags
-        sessionStorage.removeItem("justVerified");
-        localStorage.removeItem("pendingVerificationEmail");
-
-        // Redirect to login or dashboard based on auth state
-        if (user) {
-          navigate("/dashboard");
-        } else {
-          navigate("/login", {
-            state: {
-              message: "KYC submitted successfully! Please login to continue.",
+    try {
+      // ✅ Update phone if "not provided"
+      if (user && user.phone === "not provided") {
+        const phoneRes = await fetch(
+          "http://localhost:8000/api/auth/complete-profile",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${user.token}`,
             },
-          });
-        }
-      })
-      .catch((err) => {
-        console.error("Submission error:", err);
-        alert("Failed to submit KYC");
+            body: JSON.stringify({ phone: formData.phone }),
+          }
+        );
+
+        const phoneData = await phoneRes.json();
+        if (!phoneRes.ok)
+          throw new Error(phoneData.message || "Phone update failed");
+      }
+
+      // ✅ Submit KYC
+      const res = await fetch(`http://localhost:8000/api/kyc`, {
+        method: "POST",
+        body: payload,
       });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "KYC submission failed");
+
+      alert("KYC submitted successfully!");
+      sessionStorage.removeItem("justVerified");
+      localStorage.removeItem("pendingVerificationEmail");
+
+      navigate(user ? "/dashboard" : "/login", {
+        state: {
+          message: "KYC submitted successfully. Please login to continue.",
+        },
+      });
+    } catch (err) {
+      console.error("KYC submission error:", err);
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
       <h1 className="text-3xl font-bold mb-6 text-center">KYC Verification</h1>
 
-      {/* Show user info */}
       {userEmail && (
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-700">
@@ -104,42 +143,29 @@ const KYCForm = () => {
         </div>
       )}
 
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">{error}</div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block font-medium mb-1">Full Name</label>
-          <input
-            type="text"
-            name="fullName"
-            value={formData.fullName}
-            onChange={handleChange}
-            required
-            className="w-full border px-4 py-2 rounded"
-          />
-        </div>
-
-        <div>
-          <label className="block font-medium mb-1">Date of Birth</label>
-          <input
-            type="date"
-            name="dob"
-            value={formData.dob}
-            onChange={handleChange}
-            required
-            className="w-full border px-4 py-2 rounded"
-          />
-        </div>
-
-        <div>
-          <label className="block font-medium mb-1">Phone Number</label>
-          <input
-            type="text"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            required
-            className="w-full border px-4 py-2 rounded"
-          />
-        </div>
+        {[
+          { label: "Full Name", name: "fullName", type: "text" },
+          { label: "Date of Birth", name: "dob", type: "date" },
+          { label: "Phone Number", name: "phone", type: "text" },
+        ].map(({ label, name, type }) => (
+          <div key={name}>
+            <label className="block font-medium mb-1">{label}</label>
+            <input
+              type={type}
+              name={name}
+              value={formData[name]}
+              onChange={handleChange}
+              required
+              className="w-full border px-4 py-2 rounded"
+              disabled={isSubmitting}
+            />
+          </div>
+        ))}
 
         <div>
           <label className="block font-medium mb-1">Address</label>
@@ -149,7 +175,8 @@ const KYCForm = () => {
             onChange={handleChange}
             required
             className="w-full border px-4 py-2 rounded"
-          ></textarea>
+            disabled={isSubmitting}
+          />
         </div>
 
         <div>
@@ -160,6 +187,7 @@ const KYCForm = () => {
             onChange={handleChange}
             required
             className="w-full border px-4 py-2 rounded"
+            disabled={isSubmitting}
           >
             <option value="">-- Select --</option>
             <option>Nagarikta</option>
@@ -179,6 +207,7 @@ const KYCForm = () => {
             onChange={handleChange}
             required
             className="w-full border px-4 py-2 rounded"
+            disabled={isSubmitting}
           />
         </div>
 
@@ -191,6 +220,7 @@ const KYCForm = () => {
             accept=".pdf,.jpg,.jpeg,.png"
             required
             className="w-full"
+            disabled={isSubmitting}
           />
         </div>
 
@@ -203,14 +233,18 @@ const KYCForm = () => {
             accept=".jpg,.jpeg,.png"
             required
             className="w-full"
+            disabled={isSubmitting}
           />
         </div>
 
         <button
           type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded"
+          disabled={isSubmitting}
+          className={`w-full ${
+            isSubmitting ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+          } text-white font-semibold py-2 px-4 rounded`}
         >
-          Submit KYC
+          {isSubmitting ? "Submitting..." : "Submit KYC"}
         </button>
       </form>
     </div>
