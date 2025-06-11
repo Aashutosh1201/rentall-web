@@ -36,6 +36,8 @@ const KYCForm = () => {
   };
 
   useEffect(() => {
+    const pendingEmail = localStorage.getItem("pendingVerificationEmail");
+
     if (user) {
       setUserEmail(user.email);
       setFormData((prev) => ({
@@ -43,10 +45,10 @@ const KYCForm = () => {
         fullName: user.fullName || "",
         phone: user.phone || "",
       }));
+    } else if (pendingEmail) {
+      setUserEmail(pendingEmail);
     } else {
-      const pendingEmail = localStorage.getItem("pendingVerificationEmail");
-      if (pendingEmail) setUserEmail(pendingEmail);
-      else navigate("/login");
+      navigate("/login");
     }
   }, [user, navigate]);
 
@@ -72,14 +74,14 @@ const KYCForm = () => {
         } else {
           const today = new Date();
           const birthDate = new Date(value);
-          const age = today.getFullYear() - birthDate.getFullYear();
+          let age = today.getFullYear() - birthDate.getFullYear(); // Changed from const to let
           const monthDiff = today.getMonth() - birthDate.getMonth();
 
           if (
             monthDiff < 0 ||
             (monthDiff === 0 && today.getDate() < birthDate.getDate())
           ) {
-            age--;
+            age--; // Now this works because age is declared with let
           }
 
           if (birthDate >= today) {
@@ -93,7 +95,6 @@ const KYCForm = () => {
           }
         }
         break;
-
       case "phone":
         if (!value.trim()) {
           newErrors.phone = "Phone number is required";
