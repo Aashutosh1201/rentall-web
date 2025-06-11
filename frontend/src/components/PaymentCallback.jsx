@@ -196,16 +196,12 @@ export default function PaymentCallback() {
 
         // Handle successful verification
         if (verifyData.success) {
-          addLog("Payment verification successful");
           if (
             verifyData.status === "completed" ||
             verifyData.status === "Completed"
           ) {
-            addLog("Payment status is completed");
-            // Payment completed successfully
             if (verifyData.rental_created && verifyData.rental_id) {
-              addLog("Rental already created by backend");
-              // Rental already created by backend
+              addLog("✅ Rental already created by backend.");
               if (mountedRef.current) {
                 setStatus("success");
                 setMessage(
@@ -214,19 +210,20 @@ export default function PaymentCallback() {
                 sessionStorage.removeItem("pendingRental");
                 setTimeout(() => navigate("/rentals"), 3000);
               }
-            } else {
-              addLog("Need to create rental manually");
-              // Need to create rental manually (fallback)
-              if (mountedRef.current) {
-                setMessage("Payment verified. Creating your rental...");
-              }
-              await createRentalFallback(
-                verifyData,
-                pidx,
-                transactionId,
-                currentUser
-              );
+              return; // ✅ STOP HERE!
             }
+
+            // Backend did NOT create rental → fallback
+            addLog("⚠️ Rental not created by backend, attempting fallback.");
+            if (mountedRef.current) {
+              setMessage("Payment verified. Creating your rental...");
+            }
+            await createRentalFallback(
+              verifyData,
+              pidx,
+              transactionId,
+              currentUser
+            );
           } else {
             addLog(`Payment status is not completed: ${verifyData.status}`);
             // Payment not completed
@@ -486,7 +483,25 @@ export default function PaymentCallback() {
         addLog(
           `Creating rental with URL data: ${JSON.stringify(rentalRequestData)}`
         );
+        const checkResponse = await fetch(
+          `http://localhost:8000/api/rentals/by-payment/${pidx}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${currentUser.token}`,
+            },
+          }
+        );
 
+        if (checkResponse.ok) {
+          const checkData = await checkResponse.json();
+          if (checkData.exists) {
+            addLog(
+              "❌ Rental already exists for this payment. Skipping creation."
+            );
+            return;
+          }
+        }
         const createResponse = await fetch(
           "http://localhost:8000/api/rentals/create",
           {
@@ -571,6 +586,26 @@ export default function PaymentCallback() {
         addLog(
           `Creating rental with data: ${JSON.stringify(rentalRequestData)}`
         );
+
+        const checkResponse = await fetch(
+          `http://localhost:8000/api/rentals/by-payment/${pidx}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${currentUser.token}`,
+            },
+          }
+        );
+
+        if (checkResponse.ok) {
+          const checkData = await checkResponse.json();
+          if (checkData.exists) {
+            addLog(
+              "❌ Rental already exists for this payment. Skipping creation."
+            );
+            return;
+          }
+        }
 
         const createResponse = await fetch(
           "http://localhost:8000/api/rentals/create",
