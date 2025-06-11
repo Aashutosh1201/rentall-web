@@ -8,6 +8,7 @@ const KYCForm = () => {
   const [userEmail, setUserEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
   const [showSuccess, setShowSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -20,6 +21,19 @@ const KYCForm = () => {
     idDocument: null,
     selfie: null,
   });
+
+  // Validation patterns
+  const validationPatterns = {
+    fullName: /^[a-zA-Z\s]{2,50}$/,
+    phone: /^(97|98)\d{8}$/,
+    idNumber: {
+      Nagarikta: /^\d{10,17}$/,
+      "PAN Card": /^[0-9]{9}$/,
+      Passport: /^[A-Za-z]{1,2}[0-9]{6,8}$/,
+      "Driving License": /^[0-9]{8,10}$/,
+      "Rastra Parichaya Patra": /^\d{13}$/,
+    },
+  };
 
   useEffect(() => {
     if (user) {
@@ -36,46 +50,232 @@ const KYCForm = () => {
     }
   }, [user, navigate]);
 
+  // Real-time validation function
+  const validateField = (name, value, files = null) => {
+    const newErrors = { ...errors };
+
+    switch (name) {
+      case "fullName":
+        if (!value.trim()) {
+          newErrors.fullName = "Full name is required";
+        } else if (!validationPatterns.fullName.test(value.trim())) {
+          newErrors.fullName =
+            "Full name should only contain letters and spaces (2-50 characters)";
+        } else {
+          delete newErrors.fullName;
+        }
+        break;
+
+      case "dob":
+        if (!value) {
+          newErrors.dob = "Date of birth is required";
+        } else {
+          const today = new Date();
+          const birthDate = new Date(value);
+          const age = today.getFullYear() - birthDate.getFullYear();
+          const monthDiff = today.getMonth() - birthDate.getMonth();
+
+          if (
+            monthDiff < 0 ||
+            (monthDiff === 0 && today.getDate() < birthDate.getDate())
+          ) {
+            age--;
+          }
+
+          if (birthDate >= today) {
+            newErrors.dob = "Date of birth cannot be in the future";
+          } else if (age < 16) {
+            newErrors.dob = "You must be at least 16 years old";
+          } else if (age > 120) {
+            newErrors.dob = "Please enter a valid date of birth";
+          } else {
+            delete newErrors.dob;
+          }
+        }
+        break;
+
+      case "phone":
+        if (!value.trim()) {
+          newErrors.phone = "Phone number is required";
+        } else if (!validationPatterns.phone.test(value.trim())) {
+          newErrors.phone =
+            "Phone number must be 10 digits and start with 97 or 98";
+        } else {
+          delete newErrors.phone;
+        }
+        break;
+
+      case "address":
+        if (!value.trim()) {
+          newErrors.address = "Address is required";
+        } else if (value.trim().length < 10) {
+          newErrors.address = "Address must be at least 10 characters long";
+        } else if (value.trim().length > 200) {
+          newErrors.address = "Address must not exceed 200 characters";
+        } else {
+          delete newErrors.address;
+        }
+        break;
+
+      case "idType":
+        if (!value) {
+          newErrors.idType = "Please select an ID type";
+        } else {
+          delete newErrors.idType;
+          // Re-validate ID number if it exists
+          if (formData.idNumber) {
+            validateField("idNumber", formData.idNumber);
+          }
+        }
+        break;
+
+      case "idNumber":
+        if (!value.trim()) {
+          newErrors.idNumber = "ID number is required";
+        } else if (
+          formData.idType &&
+          validationPatterns.idNumber[formData.idType]
+        ) {
+          const pattern = validationPatterns.idNumber[formData.idType];
+          if (!pattern.test(value.trim())) {
+            newErrors.idNumber = `Please enter a valid ${formData.idType} number`;
+          } else {
+            delete newErrors.idNumber;
+          }
+        } else {
+          delete newErrors.idNumber;
+        }
+        break;
+
+      case "idDocument":
+        if (!files || files.length === 0) {
+          newErrors.idDocument = "ID document is required";
+        } else {
+          const file = files[0];
+          const validTypes = [
+            "application/pdf",
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+          ];
+          const maxSize = 5 * 1024 * 1024; // 5MB
+
+          if (!validTypes.includes(file.type)) {
+            newErrors.idDocument =
+              "Please upload a PDF, JPG, JPEG, or PNG file";
+          } else if (file.size > maxSize) {
+            newErrors.idDocument = "File size must be less than 5MB";
+          } else {
+            delete newErrors.idDocument;
+          }
+        }
+        break;
+
+      case "selfie":
+        if (!files || files.length === 0) {
+          newErrors.selfie = "Selfie is required";
+        } else {
+          const file = files[0];
+          const validTypes = ["image/jpeg", "image/jpg", "image/png"];
+          const maxSize = 5 * 1024 * 1024; // 5MB
+
+          if (!validTypes.includes(file.type)) {
+            newErrors.selfie = "Please upload a JPG, JPEG, or PNG file";
+          } else if (file.size > maxSize) {
+            newErrors.selfie = "File size must be less than 5MB";
+          } else {
+            delete newErrors.selfie;
+          }
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleChange = (e) => {
     const { name, value, files } = e.target;
+
     if (files) {
       setFormData((prev) => ({ ...prev, [name]: files[0] }));
+      validateField(name, value, files);
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      // Sanitize input based on field type
+      let sanitizedValue = value;
+      if (name === "fullName") {
+        sanitizedValue = value.replace(/[^a-zA-Z\s]/g, ""); // Only letters and spaces
+      } else if (name === "phone") {
+        sanitizedValue = value.replace(/[^0-9]/g, ""); // Only numbers
+        if (sanitizedValue.length > 10) {
+          sanitizedValue = sanitizedValue.slice(0, 10);
+        }
+      } else if (name === "idNumber") {
+        // Clean based on ID type
+        if (
+          formData.idType === "PAN Card" ||
+          formData.idType === "Nagarikta" ||
+          formData.idType === "Driving License" ||
+          formData.idType === "Rastra Parichaya Patra"
+        ) {
+          sanitizedValue = value.replace(/[^0-9]/g, "");
+        } else if (formData.idType === "Passport") {
+          sanitizedValue = value.replace(/[^A-Za-z0-9]/g, "");
+        }
+      }
+
+      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+      validateField(name, sanitizedValue);
     }
   };
 
+  const handleBlur = (e) => {
+    const { name, value, files } = e.target;
+    validateField(name, value, files);
+  };
+
   const validateForm = () => {
-    if (!/^(97|98)\d{8}$/.test(formData.phone)) {
-      setError("Phone number must be 10 digits and start with 97 or 98.");
-      return false;
-    }
+    let isValid = true;
+    const fieldsToValidate = [
+      "fullName",
+      "dob",
+      "phone",
+      "address",
+      "idType",
+      "idNumber",
+    ];
 
-    for (const key in formData) {
-      if (
-        (formData[key] === "" || formData[key] == null) &&
-        key !== "idDocument" &&
-        key !== "selfie"
-      ) {
-        setError(`Field "${key}" is required.`);
-        return false;
+    // Validate all text fields
+    fieldsToValidate.forEach((field) => {
+      if (!validateField(field, formData[field])) {
+        isValid = false;
       }
+    });
+
+    // Validate file fields
+    if (!formData.idDocument) {
+      setErrors((prev) => ({ ...prev, idDocument: "ID document is required" }));
+      isValid = false;
     }
 
-    if (!formData.idDocument || !formData.selfie) {
-      setError("Both ID Document and Selfie must be uploaded.");
-      return false;
+    if (!formData.selfie) {
+      setErrors((prev) => ({ ...prev, selfie: "Selfie is required" }));
+      isValid = false;
     }
 
-    setError("");
-    return true;
+    return isValid;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError("");
 
     if (!validateForm()) {
+      setError("Please fix all validation errors before submitting");
       setIsSubmitting(false);
       return;
     }
@@ -133,6 +333,23 @@ const KYCForm = () => {
     });
   };
 
+  const getIdNumberPlaceholder = () => {
+    switch (formData.idType) {
+      case "Nagarikta":
+        return "Enter citizenship number";
+      case "PAN Card":
+        return "Enter 9-digit PAN number";
+      case "Passport":
+        return "Enter passport number";
+      case "Driving License":
+        return "Enter license number";
+      case "Rastra Parichaya Patra":
+        return "Enter 13-digit number";
+      default:
+        return "Enter ID number";
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 bg-gray-50 min-h-screen">
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -149,34 +366,95 @@ const KYCForm = () => {
         )}
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md border border-red-200">
-            {error}
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-red-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                ></path>
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-red-800">{error}</p>
+            </div>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[
-              { label: "Full Name", name: "fullName", type: "text" },
-              { label: "Date of Birth", name: "dob", type: "date" },
-              { label: "Phone Number", name: "phone", type: "text" },
-            ].map(({ label, name, type }) => (
-              <div key={name} className="space-y-1">
-                <label className="block font-medium text-gray-700">
-                  {label}
-                  <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type={type}
-                  name={name}
-                  value={formData[name]}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                  disabled={isSubmitting}
-                />
-              </div>
-            ))}
+            <div className="space-y-1">
+              <label className="block font-medium text-gray-700">
+                Full Name
+                <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                maxLength={50}
+                className={`w-full border ${
+                  errors.fullName ? "border-red-300" : "border-gray-300"
+                } rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
+                disabled={isSubmitting}
+                placeholder="Enter your full name"
+              />
+              {errors.fullName && (
+                <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="block font-medium text-gray-700">
+                Date of Birth
+                <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                name="dob"
+                value={formData.dob}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                max={new Date().toISOString().split("T")[0]}
+                className={`w-full border ${
+                  errors.dob ? "border-red-300" : "border-gray-300"
+                } rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
+                disabled={isSubmitting}
+              />
+              {errors.dob && (
+                <p className="mt-1 text-sm text-red-600">{errors.dob}</p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="block font-medium text-gray-700">
+                Phone Number
+                <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                maxLength={10}
+                className={`w-full border ${
+                  errors.phone ? "border-red-300" : "border-gray-300"
+                } rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
+                disabled={isSubmitting}
+                placeholder="9812345678"
+              />
+              {errors.phone && (
+                <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-1">
@@ -187,11 +465,23 @@ const KYCForm = () => {
               name="address"
               value={formData.address}
               onChange={handleChange}
-              required
+              onBlur={handleBlur}
               rows={3}
-              className="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+              maxLength={200}
+              className={`w-full border ${
+                errors.address ? "border-red-300" : "border-gray-300"
+              } rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
               disabled={isSubmitting}
+              placeholder="Enter your complete address"
             />
+            <div className="flex justify-between text-xs text-gray-500">
+              {errors.address ? (
+                <p className="text-red-600">{errors.address}</p>
+              ) : (
+                <span>Minimum 10 characters required</span>
+              )}
+              <span>{formData.address.length}/200</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -203,17 +493,24 @@ const KYCForm = () => {
                 name="idType"
                 value={formData.idType}
                 onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                onBlur={handleBlur}
+                className={`w-full border ${
+                  errors.idType ? "border-red-300" : "border-gray-300"
+                } rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
                 disabled={isSubmitting}
               >
-                <option value="">-- Select --</option>
-                <option>Nagarikta</option>
-                <option>PAN Card</option>
-                <option>Passport</option>
-                <option>Driving License</option>
-                <option>Rastra Parichaya Patra</option>
+                <option value="">-- Select ID Type --</option>
+                <option value="Nagarikta">Nagarikta</option>
+                <option value="PAN Card">PAN Card</option>
+                <option value="Passport">Passport</option>
+                <option value="Driving License">Driving License</option>
+                <option value="Rastra Parichaya Patra">
+                  Rastra Parichaya Patra
+                </option>
               </select>
+              {errors.idType && (
+                <p className="mt-1 text-sm text-red-600">{errors.idType}</p>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -225,10 +522,16 @@ const KYCForm = () => {
                 name="idNumber"
                 value={formData.idNumber}
                 onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                onBlur={handleBlur}
+                className={`w-full border ${
+                  errors.idNumber ? "border-red-300" : "border-gray-300"
+                } rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
                 disabled={isSubmitting}
+                placeholder={getIdNumberPlaceholder()}
               />
+              {errors.idNumber && (
+                <p className="mt-1 text-sm text-red-600">{errors.idNumber}</p>
+              )}
             </div>
           </div>
 
@@ -236,47 +539,71 @@ const KYCForm = () => {
             <label className="block font-medium text-gray-700">
               Upload ID Document<span className="text-red-500">*</span>
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-md p-4 transition hover:border-blue-400">
+            <div
+              className={`border-2 border-dashed ${
+                errors.idDocument ? "border-red-300" : "border-gray-300"
+              } rounded-md p-4 transition hover:border-blue-400`}
+            >
               <input
                 type="file"
                 name="idDocument"
                 onChange={handleChange}
+                onBlur={handleBlur}
                 accept=".pdf,.jpg,.jpeg,.png"
-                required
                 className="w-full"
                 disabled={isSubmitting}
               />
               <p className="text-sm text-gray-500 mt-1">
-                Accepted formats: PDF, JPG, JPEG, PNG
+                Accepted formats: PDF, JPG, JPEG, PNG (Max: 5MB)
               </p>
+              {formData.idDocument && (
+                <p className="text-sm text-green-600 mt-1">
+                  ✓ {formData.idDocument.name}
+                </p>
+              )}
             </div>
+            {errors.idDocument && (
+              <p className="mt-1 text-sm text-red-600">{errors.idDocument}</p>
+            )}
           </div>
 
           <div className="space-y-1">
             <label className="block font-medium text-gray-700">
               Upload Selfie<span className="text-red-500">*</span>
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-md p-4 transition hover:border-blue-400">
+            <div
+              className={`border-2 border-dashed ${
+                errors.selfie ? "border-red-300" : "border-gray-300"
+              } rounded-md p-4 transition hover:border-blue-400`}
+            >
               <input
                 type="file"
                 name="selfie"
                 onChange={handleChange}
+                onBlur={handleBlur}
                 accept=".jpg,.jpeg,.png"
-                required
                 className="w-full"
                 disabled={isSubmitting}
               />
               <p className="text-sm text-gray-500 mt-1">
-                Accepted formats: JPG, JPEG, PNG
+                Accepted formats: JPG, JPEG, PNG (Max: 5MB)
               </p>
+              {formData.selfie && (
+                <p className="text-sm text-green-600 mt-1">
+                  ✓ {formData.selfie.name}
+                </p>
+              )}
             </div>
+            {errors.selfie && (
+              <p className="mt-1 text-sm text-red-600">{errors.selfie}</p>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || Object.keys(errors).length > 0}
             className={`w-full ${
-              isSubmitting
+              isSubmitting || Object.keys(errors).length > 0
                 ? "bg-blue-400 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700"
             } text-white font-semibold py-3 px-4 rounded-md shadow-md transition`}
