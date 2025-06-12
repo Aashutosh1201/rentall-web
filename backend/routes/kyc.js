@@ -30,24 +30,33 @@ const upload = multer({ storage });
 // POST route for KYC submissions
 router.post(
   "/",
-  upload.fields([
-    { name: "idDocument", maxCount: 1 },
-    { name: "selfie", maxCount: 1 },
-  ]),
+  upload.fields([{ name: "idDocument" }, { name: "selfie" }]),
   async (req, res) => {
     try {
-      const { fullName, dob, phone, address, idType, idNumber, email } =
+      const { email, fullName, dob, phone, address, idType, idNumber } =
         req.body;
+
+      if (!email) return res.status(400).json({ message: "Email is required" });
+
+      // ✅ Prevent duplicate KYC for the same email
+      const existing = await KYC.findOne({ email });
+      if (existing) {
+        return res
+          .status(409)
+          .json({ message: "KYC already submitted for this email." });
+      }
 
       const idDocumentPath = req.files?.idDocument?.[0]?.path;
       const selfiePath = req.files?.selfie?.[0]?.path;
 
       if (!idDocumentPath || !selfiePath) {
-        return res.status(400).json({ error: "Both files are required." });
+        return res
+          .status(400)
+          .json({ error: "Both ID document and selfie are required." });
       }
 
-      // ✅ Step 1: Save the KYC submission
       const newKYC = new KYC({
+        email,
         fullName,
         dob,
         phone,
@@ -56,33 +65,24 @@ router.post(
         idNumber,
         idDocumentPath,
         selfiePath,
-        status: "pending", // Default status
       });
 
       await newKYC.save();
 
-      // ✅ Step 2: Update user phone number if it's still "not provided"
-      if (email && phone) {
-        try {
-          const user = await User.findOne({ email });
-          if (user && user.phone === "not provided") {
-            user.phone = phone;
-            await user.save();
-            console.log("✅ User phone updated from KYC submission.");
-          }
-        } catch (err) {
-          console.error("❌ Error updating user phone from KYC:", err);
-        }
+      // ✅ Optional: Update phone in user record if needed
+      const user = await User.findOne({ email });
+      if (user && user.phone === "not provided") {
+        user.phone = phone;
+        await user.save();
       }
 
-      res.status(200).json({ message: "KYC submitted successfully." });
+      res.status(201).json({ message: "KYC submitted successfully." });
     } catch (err) {
-      console.error("KYC Submission Error:", err);
-      res.status(500).json({ error: "Something went wrong." });
+      console.error("KYC error:", err);
+      res.status(500).json({ message: "Server error" });
     }
   }
 );
-
 // GET route to fetch all KYC submissions
 router.get("/", async (req, res) => {
   try {
@@ -119,6 +119,20 @@ router.patch("/:id", async (req, res) => {
   } catch (err) {
     console.error("KYC Update Error:", err);
     res.status(500).json({ error: "Failed to update KYC status." });
+  }
+});
+
+router.get("/status/:email", async (req, res) => {
+  try {
+    const kyc = await KYC.findOne({ email: req.params.email });
+    if (kyc) {
+      return res.json({ exists: true, status: kyc.status });
+    } else {
+      return res.json({ exists: false });
+    }
+  } catch (err) {
+    console.error("Status check error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 

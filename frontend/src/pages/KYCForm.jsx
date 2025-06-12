@@ -359,10 +359,16 @@ const KYCForm = () => {
         </h1>
 
         {userEmail && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-700">
-              Submitting KYC for: <strong>{userEmail}</strong>
-            </p>
+          <div className="space-y-1 mb-6">
+            <label className="block font-medium text-gray-700">
+              Email (auto-linked to account)
+            </label>
+            <input
+              type="email"
+              value={userEmail}
+              disabled
+              className="w-full border border-gray-300 rounded-md px-4 py-2 bg-gray-100 text-gray-600 cursor-not-allowed"
+            />
           </div>
         )}
 
