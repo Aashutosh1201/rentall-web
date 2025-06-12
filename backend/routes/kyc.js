@@ -3,31 +3,12 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const KYC = require("../models/KYC");
-const User = require("../models/User"); // ✅ Import User model
-
+const User = require("../models/User");
+const cloudinary = require("../config/claudinary");
 const router = express.Router();
 
-// Ensure KYC folder exists
-const kycDir = path.join("KYC");
-if (!fs.existsSync(kycDir)) {
-  fs.mkdirSync(kycDir, { recursive: true });
-}
+const upload = multer({ dest: "temp/" });
 
-// Multer setup
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, kycDir); // Save files to the KYC directory
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext);
-    cb(null, `${base}-${Date.now()}${ext}`);
-  },
-});
-
-const upload = multer({ storage });
-
-// POST route for KYC submissions
 router.post(
   "/",
   upload.fields([{ name: "idDocument" }, { name: "selfie" }]),
@@ -38,7 +19,7 @@ router.post(
 
       if (!email) return res.status(400).json({ message: "Email is required" });
 
-      // ✅ Prevent duplicate KYC for the same email
+      // Prevent duplicate KYC
       const existing = await KYC.findOne({ email });
       if (existing) {
         return res
@@ -46,13 +27,31 @@ router.post(
           .json({ message: "KYC already submitted for this email." });
       }
 
-      const idDocumentPath = req.files?.idDocument?.[0]?.path;
-      const selfiePath = req.files?.selfie?.[0]?.path;
-
-      if (!idDocumentPath || !selfiePath) {
+      if (!req.files || !req.files.idDocument || !req.files.selfie) {
         return res
           .status(400)
-          .json({ error: "Both ID document and selfie are required." });
+          .json({ message: "Both ID document and selfie files are required." });
+      }
+
+      // Upload to Cloudinary
+      let idDocUrl, selfieUrl;
+      try {
+        const idDocUpload = await cloudinary.uploader.upload(
+          req.files.idDocument[0].path,
+          { folder: "rentall/kyc/idDocs" }
+        );
+        idDocUrl = idDocUpload.secure_url;
+
+        const selfieUpload = await cloudinary.uploader.upload(
+          req.files.selfie[0].path,
+          { folder: "rentall/kyc/selfies" }
+        );
+        selfieUrl = selfieUpload.secure_url;
+      } catch (uploadErr) {
+        console.error("Cloudinary upload error:", uploadErr);
+        return res
+          .status(500)
+          .json({ message: "Failed to upload documents. Try again." });
       }
 
       const newKYC = new KYC({
@@ -63,13 +62,13 @@ router.post(
         address,
         idType,
         idNumber,
-        idDocumentPath,
-        selfiePath,
+        idDocumentPath: idDocUrl,
+        selfiePath: selfieUrl,
       });
 
       await newKYC.save();
 
-      // ✅ Optional: Update phone in user record if needed
+      // Optionally update phone if needed
       const user = await User.findOne({ email });
       if (user && user.phone === "not provided") {
         user.phone = phone;
@@ -79,48 +78,10 @@ router.post(
       res.status(201).json({ message: "KYC submitted successfully." });
     } catch (err) {
       console.error("KYC error:", err);
-      res.status(500).json({ message: "Server error" });
+      res.status(500).json({ message: "Server error", detail: err.message });
     }
   }
 );
-// GET route to fetch all KYC submissions
-router.get("/", async (req, res) => {
-  try {
-    const kycSubmissions = await KYC.find(); // Fetch all KYC submissions
-    res.status(200).json(kycSubmissions);
-  } catch (err) {
-    console.error("KYC Fetch Error:", err);
-    res.status(500).json({ error: "Failed to fetch KYC submissions." });
-  }
-});
-
-// PATCH route to update KYC status
-router.patch("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    // Validate status
-    if (!["approved", "disapproved"].includes(status)) {
-      return res.status(400).json({ error: "Invalid status value." });
-    }
-
-    const updatedKYC = await KYC.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true } // Return the updated document
-    );
-
-    if (!updatedKYC) {
-      return res.status(404).json({ error: "KYC not found." });
-    }
-
-    res.status(200).json(updatedKYC);
-  } catch (err) {
-    console.error("KYC Update Error:", err);
-    res.status(500).json({ error: "Failed to update KYC status." });
-  }
-});
 
 router.get("/status/:email", async (req, res) => {
   try {
