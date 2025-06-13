@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   FiHome,
@@ -47,6 +47,7 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const navigate = useNavigate();
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
@@ -62,6 +63,10 @@ const Navbar = () => {
     setShowLogoutModal(false);
   };
 
+  const handleProfileClick = () => {
+    navigate("/profile");
+  };
+
   return (
     <>
       {/* Desktop Navbar */}
@@ -69,7 +74,7 @@ const Navbar = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Left section - Logo and main nav */}
-            <div className="flex items-center flex-shrink-0">
+            <div className="flex items-center">
               <Link
                 to="/"
                 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent flex items-center"
@@ -78,7 +83,7 @@ const Navbar = () => {
                 <span className="sm:ml-1">RentALL</span>
               </Link>
 
-              {/* Primary navigation - Hidden on medium screens (md) */}
+              {/* Primary navigation */}
               <div className="hidden lg:ml-10 lg:flex lg:items-center lg:space-x-6">
                 <NavLink
                   to="/"
@@ -136,8 +141,8 @@ const Navbar = () => {
             </div>
 
             {/* Right section - Search, user, etc. */}
-            <div className="flex items-center space-x-2 md:space-x-4">
-              {/* Search bar - Hidden on medium screens (md) */}
+            <div className="flex items-center space-x-4">
+              {/* Search bar */}
               <div className="hidden lg:block relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <FiSearch className="h-4 w-4 text-gray-400" />
@@ -152,55 +157,59 @@ const Navbar = () => {
               </div>
 
               {isAuthenticated() ? (
-                <>
-                  {/* Notification bell - Hidden on medium screens (md) */}
+                <div className="flex items-center space-x-4">
+                  {/* Notification bell */}
                   <button className="hidden lg:block p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <span className="sr-only">View notifications</span>
                     <FiBell className="h-6 w-6" />
                     <span className="absolute top-3 right-28 h-2 w-2 rounded-full bg-red-500"></span>
                   </button>
 
-                  <div className="flex items-center">
-                    {/* Dashboard Link - Only shown when authenticated */}
-                    <NavLink
-                      to="/dashboard"
-                      className={({ isActive }) =>
-                        `hidden xl:flex items-center px-3 py-2 text-sm font-medium ${
-                          isActive
-                            ? "text-blue-600"
-                            : "text-gray-500 hover:text-gray-700"
-                        }`
-                      }
-                    >
-                      <FiUser className="mr-1.5" /> Dashboard
-                    </NavLink>
+                  {/* Dashboard Link */}
+                  <NavLink
+                    to="/dashboard"
+                    className={({ isActive }) =>
+                      `hidden xl:flex items-center px-3 py-2 text-sm font-medium ${
+                        isActive
+                          ? "text-blue-600"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`
+                    }
+                  >
+                    <FiUser className="mr-1.5" /> Dashboard
+                  </NavLink>
 
-                    {/* Profile dropdown - Simplified on medium screens */}
-                    <NavLink
-                      to="/profile"
-                      className="ml-3 relative flex items-center"
-                    >
-                      <button className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <span className="sr-only">Open user menu</span>
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-blue-700 flex items-center justify-center text-white font-medium">
-                          {user?.name?.charAt(0) || "U"}
-                        </div>
-                      </button>
-                    </NavLink>
+                  {/* Profile avatar - now directly links to profile */}
+                  <button
+                    onClick={handleProfileClick}
+                    className="flex rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <span className="sr-only">Open profile</span>
+                    {user?.selfiePath ? (
+                      <img
+                        className="h-8 w-8 rounded-full object-cover"
+                        src={user.selfiePath}
+                        alt="User selfie"
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                        {user?.fullName?.charAt(0).toUpperCase() || "U"}
+                      </div>
+                    )}
+                  </button>
 
-                    {/* Updated Logout Button - Icon only on medium screens */}
-                    <button
-                      onClick={handleLogoutClick}
-                      className="ml-2 xl:ml-4 flex items-center text-sm text-gray-600 hover:text-red-600 transition-colors"
-                      title="Logout"
-                    >
-                      <FiLogOut className="h-5 w-5" />
-                      <span className="hidden xl:inline ml-1">Logout</span>
-                    </button>
-                  </div>
-                </>
+                  {/* Logout Button */}
+                  <button
+                    onClick={handleLogoutClick}
+                    className="hidden xl:flex items-center text-sm text-gray-600 hover:text-red-600 transition-colors"
+                    title="Logout"
+                  >
+                    <FiLogOut className="h-5 w-5" />
+                    <span className="ml-1">Logout</span>
+                  </button>
+                </div>
               ) : (
-                <div className="flex items-center space-x-2 md:space-x-4">
+                <div className="flex items-center space-x-4">
                   <Link
                     to="/login"
                     className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
@@ -209,15 +218,15 @@ const Navbar = () => {
                   </Link>
                   <Link
                     to="/register"
-                    className="bg-gradient-to-r from-blue-600 to-blue-800 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-md text-sm font-medium hover:shadow-md transition-all duration-200 flex items-center"
+                    className="bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 rounded-md text-sm font-medium hover:shadow-md transition-all duration-200 flex items-center"
                   >
-                    <FiPlus className="mr-1" />{" "}
-                    <span className="hidden sm:inline">Sign up</span>
+                    <FiPlus className="mr-1" />
+                    <span>Sign up</span>
                   </Link>
                 </div>
               )}
 
-              {/* Mobile menu button - Shown on medium screens (md) */}
+              {/* Mobile menu button */}
               <div className="lg:hidden flex items-center">
                 <button
                   onClick={() => setMobileMenuOpen(true)}
@@ -236,7 +245,7 @@ const Navbar = () => {
       <div
         className={`fixed inset-0 z-50 transform ${
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        } transition-transform duration-300 ease-in-out md:hidden`}
+        } transition-transform duration-300 ease-in-out lg:hidden`}
       >
         <div
           className="fixed inset-0 bg-black bg-opacity-50"
@@ -261,6 +270,19 @@ const Navbar = () => {
           </div>
 
           <div className="px-4 pt-4 pb-6 space-y-1">
+            <div className="relative mb-4">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiSearch className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search..."
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
             <NavLink
               to="/"
               className={({ isActive }) =>
@@ -322,6 +344,21 @@ const Navbar = () => {
                 >
                   <div className="flex items-center">
                     <FiUser className="mr-2" /> Dashboard
+                  </div>
+                </NavLink>
+                <NavLink
+                  to="/profile"
+                  className={({ isActive }) =>
+                    `block px-3 py-2 rounded-md text-base font-medium ${
+                      isActive
+                        ? "bg-blue-50 text-blue-600"
+                        : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                    }`
+                  }
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <div className="flex items-center">
+                    <FiUser className="mr-2" /> Profile
                   </div>
                 </NavLink>
               </>
