@@ -1,11 +1,10 @@
 const Product = require("../models/Product");
-
+const cloudinary = require("../config/claudinary");
 const createProduct = async (req, res) => {
   try {
     const { name, description, category, price, location, availableDays } =
       req.body;
 
-    // Validate required fields
     if (
       !name ||
       !description ||
@@ -17,10 +16,23 @@ const createProduct = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Construct the image URL if a file was uploaded
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    // ✅ Upload product image to Cloudinary
+    let imageUrl = null;
+    if (req.file?.path) {
+      try {
+        const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+          folder: "rentall/products",
+        });
+        imageUrl = uploadResult.secure_url;
+      } catch (uploadErr) {
+        console.error("Cloudinary product upload error:", uploadErr);
+        return res
+          .status(500)
+          .json({ message: "Failed to upload product image" });
+      }
+    }
 
-    // Parse availableDays if sent as a JSON string from FormData
+    // ✅ Parse availableDays
     let parsedAvailableDays;
     try {
       parsedAvailableDays =
@@ -28,7 +40,6 @@ const createProduct = async (req, res) => {
           ? JSON.parse(availableDays)
           : availableDays;
 
-      // Ensure parsedAvailableDays is an array
       if (!Array.isArray(parsedAvailableDays)) {
         return res
           .status(400)
@@ -38,20 +49,19 @@ const createProduct = async (req, res) => {
       return res.status(400).json({ message: "Invalid availableDays format" });
     }
 
-    // Convert string dates to Date objects
     const availableDates = parsedAvailableDays.map(
       (dateStr) => new Date(dateStr)
     );
 
     const product = new Product({
-      owner: req.user.id,
+      owner: req.user.id, // ✅ make sure verifyToken sets req.user.id
       title: name,
       description,
       category,
       pricePerDay: price,
       location,
       availableDates,
-      imageUrl,
+      imageUrl, // ✅ Cloudinary-hosted URL
     });
 
     await product.save();
@@ -59,7 +69,7 @@ const createProduct = async (req, res) => {
     res.status(201).json({ message: "Product created successfully", product });
   } catch (err) {
     console.error("Create Product Error:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: err.message });
   }
 };
 

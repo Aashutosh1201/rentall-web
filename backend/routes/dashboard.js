@@ -20,6 +20,11 @@ router.get("/stats", verifyToken, async (req, res) => {
       status: "active",
     });
 
+    const myActiveRentals = await Rental.countDocuments({
+      userId: req.user.id,
+      status: "active",
+    });
+
     // Get pending reviews (rentals awaiting review)
     const pendingReviews = await Rental.countDocuments({
       product: { $in: await Product.find({ owner: userId }).select("_id") },
@@ -43,6 +48,7 @@ router.get("/stats", verifyToken, async (req, res) => {
       activeOrders,
       pendingReviews,
       totalEarnings,
+      myActiveRentals,
     });
   } catch (error) {
     console.error("Dashboard stats error:", error);

@@ -10,7 +10,12 @@ const upload = require("../middleware/upload"); // ✅ use the shared multer con
 const router = express.Router();
 
 // POST route to create a product with image upload
-router.post("/", verifyToken, upload.single("image"), createProduct);
+router.post(
+  "/",
+  verifyToken,
+  upload.single("image"), // or "productImage", whatever field name your form uses
+  createProduct
+);
 
 // GET route to fetch all products
 router.get("/", getAllProducts);
