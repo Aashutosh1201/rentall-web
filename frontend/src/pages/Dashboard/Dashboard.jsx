@@ -676,7 +676,7 @@ const MyProducts = () => {
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch =
-      product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.category?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesAvailability =
@@ -785,12 +785,12 @@ const MyProducts = () => {
                               product.imageUrl ||
                               "https://via.placeholder.com/40"
                             }
-                            alt={product.name}
+                            alt={product.title}
                           />
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {product.name}
+                            {product.title}
                           </div>
                           <div className="text-xs text-gray-500">
                             {product.rating ? (
