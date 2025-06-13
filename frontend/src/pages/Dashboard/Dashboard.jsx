@@ -782,7 +782,7 @@ const MyProducts = () => {
                           <img
                             className="h-10 w-10 rounded-lg object-cover"
                             src={
-                              product.images?.[0] ||
+                              product.imageUrl ||
                               "https://via.placeholder.com/40"
                             }
                             alt={product.name}
