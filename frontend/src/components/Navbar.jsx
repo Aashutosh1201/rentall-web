@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -47,7 +47,35 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [kycSelfie, setKycSelfie] = useState(null);
   const navigate = useNavigate();
+
+  // Fetch KYC data to get the selfie
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const fetchKYCSelfie = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:8000/api/kyc/status/${user.email}`
+        );
+        const data = await res.json();
+        if (data.exists) {
+          const kycDetails = await fetch(
+            `http://localhost:8000/api/kyc/detail/${user.email}`
+          );
+          const detail = await kycDetails.json();
+          if (detail.kyc?.selfiePath) {
+            setKycSelfie(detail.kyc.selfiePath);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch KYC selfie:", err);
+      }
+    };
+
+    fetchKYCSelfie();
+  }, [user?.email]);
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
@@ -65,6 +93,17 @@ const Navbar = () => {
 
   const handleProfileClick = () => {
     navigate("/profile");
+  };
+
+  // Function to get the profile image source
+  const getProfileImageSrc = () => {
+    // First check for KYC selfie, then fallback to user selfie from auth context
+    return kycSelfie || user?.selfiePath;
+  };
+
+  // Function to get user initial
+  const getUserInitial = () => {
+    return user?.fullName?.charAt(0).toUpperCase() || "U";
   };
 
   return (
@@ -179,21 +218,21 @@ const Navbar = () => {
                     <FiUser className="mr-1.5" /> Dashboard
                   </NavLink>
 
-                  {/* Profile avatar - now directly links to profile */}
+                  {/* Profile avatar - now shows KYC selfie if available */}
                   <button
                     onClick={handleProfileClick}
                     className="flex rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <span className="sr-only">Open profile</span>
-                    {user?.selfiePath ? (
+                    {getProfileImageSrc() ? (
                       <img
-                        className="h-8 w-8 rounded-full object-cover"
-                        src={user.selfiePath}
-                        alt="User selfie"
+                        className="h-8 w-8 rounded-full object-cover border-2 border-blue-200"
+                        src={getProfileImageSrc()}
+                        alt="User profile"
                       />
                     ) : (
                       <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
-                        {user?.fullName?.charAt(0).toUpperCase() || "U"}
+                        {getUserInitial()}
                       </div>
                     )}
                   </button>
@@ -270,6 +309,29 @@ const Navbar = () => {
           </div>
 
           <div className="px-4 pt-4 pb-6 space-y-1">
+            {/* Mobile Profile Section */}
+            {isAuthenticated() && (
+              <div className="flex items-center p-3 mb-4 bg-gray-50 rounded-lg">
+                {getProfileImageSrc() ? (
+                  <img
+                    className="h-10 w-10 rounded-full object-cover border-2 border-blue-200"
+                    src={getProfileImageSrc()}
+                    alt="User profile"
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                    {getUserInitial()}
+                  </div>
+                )}
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.fullName || "User"}
+                  </p>
+                  <p className="text-xs text-gray-500">{user?.email}</p>
+                </div>
+              </div>
+            )}
+
             <div className="relative mb-4">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FiSearch className="h-4 w-4 text-gray-400" />
