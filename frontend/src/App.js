@@ -23,8 +23,7 @@ import {
   DashboardHome,
   MyOrders,
   MyProducts,
-  DashboardLayout,
-  Profile as DashboardProfile, // ✅ Renamed to avoid conflict
+  DashboardLayout, // ✅ Renamed to avoid conflict
 } from "./pages/Dashboard/Dashboard";
 
 // Lazy load components
@@ -287,7 +286,6 @@ function App() {
             <Route index element={<DashboardHome />} />
             <Route path="orders" element={<MyOrders />} />
             <Route path="products" element={<MyProducts />} />
-            <Route path="profile" element={<DashboardProfile />} />
           </Route>
 
           <Route

@@ -867,384 +867,384 @@ const MyProducts = () => {
 };
 
 // Profile Component
-const Profile = () => {
-  const { logout } = useAuth();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-  });
-  const [errors, setErrors] = useState({});
-  const [successMessage, setSuccessMessage] = useState("");
+// const Profile = () => {
+//   const { logout } = useAuth();
+//   const [user, setUser] = useState(null);
+//   const [loading, setLoading] = useState(true);
+//   const [isEditing, setIsEditing] = useState(false);
+//   const [formData, setFormData] = useState({
+//     name: "",
+//     email: "",
+//     phone: "",
+//     address: "",
+//   });
+//   const [errors, setErrors] = useState({});
+//   const [successMessage, setSuccessMessage] = useState("");
 
-  const fetchUserProfile = async () => {
-    try {
-      setLoading(true);
-      const userData = await api.getUserProfile();
-      setUser(userData);
-      setFormData({
-        name: userData.name || "",
-        email: userData.email || "",
-        phone: userData.phone || "",
-        address: userData.address || "",
-      });
-    } catch (err) {
-      console.error("User profile fetch error:", err);
-      // Use fallback data if API fails
-      const fallbackData = {
-        name: "User",
-        email: "user@example.com",
-        phone: "",
-        address: "",
-      };
-      setUser(fallbackData);
-      setFormData(fallbackData);
-    } finally {
-      setLoading(false);
-    }
-  };
+//   const fetchUserProfile = async () => {
+//     try {
+//       setLoading(true);
+//       const userData = await api.getUserProfile();
+//       setUser(userData);
+//       setFormData({
+//         name: userData.name || "",
+//         email: userData.email || "",
+//         phone: userData.phone || "",
+//         address: userData.address || "",
+//       });
+//     } catch (err) {
+//       console.error("User profile fetch error:", err);
+//       // Use fallback data if API fails
+//       const fallbackData = {
+//         name: "User",
+//         email: "user@example.com",
+//         phone: "",
+//         address: "",
+//       };
+//       setUser(fallbackData);
+//       setFormData(fallbackData);
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
 
-  useEffect(() => {
-    fetchUserProfile();
-  }, []);
+//   useEffect(() => {
+//     fetchUserProfile();
+//   }, []);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-    // Clear error when user types
-    if (errors[name]) {
-      setErrors({
-        ...errors,
-        [name]: null,
-      });
-    }
-  };
+//   const handleInputChange = (e) => {
+//     const { name, value } = e.target;
+//     setFormData({
+//       ...formData,
+//       [name]: value,
+//     });
+//     // Clear error when user types
+//     if (errors[name]) {
+//       setErrors({
+//         ...errors,
+//         [name]: null,
+//       });
+//     }
+//   };
 
-  const validateForm = () => {
-    const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Name is required";
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Email is invalid";
-    }
-    if (formData.phone && !/^\d{10}$/.test(formData.phone)) {
-      newErrors.phone = "Phone number must be 10 digits";
-    }
+//   const validateForm = () => {
+//     const newErrors = {};
+//     if (!formData.name.trim()) newErrors.name = "Name is required";
+//     if (!formData.email.trim()) {
+//       newErrors.email = "Email is required";
+//     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+//       newErrors.email = "Email is invalid";
+//     }
+//     if (formData.phone && !/^\d{10}$/.test(formData.phone)) {
+//       newErrors.phone = "Phone number must be 10 digits";
+//     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+//     setErrors(newErrors);
+//     return Object.keys(newErrors).length === 0;
+//   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
+//   const handleSubmit = async (e) => {
+//     e.preventDefault();
+//     if (!validateForm()) return;
 
-    try {
-      // In a real app, you would call an API to update the profile
-      // await api.updateUserProfile(formData);
-      setUser(formData);
-      setSuccessMessage("Profile updated successfully!");
-      setIsEditing(false);
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      console.error("Profile update error:", err);
-      setErrors({
-        ...errors,
-        server: "Failed to update profile. Please try again.",
-      });
-    }
-  };
+//     try {
+//       // In a real app, you would call an API to update the profile
+//       // await api.updateUserProfile(formData);
+//       setUser(formData);
+//       setSuccessMessage("Profile updated successfully!");
+//       setIsEditing(false);
+//       setTimeout(() => setSuccessMessage(""), 3000);
+//     } catch (err) {
+//       console.error("Profile update error:", err);
+//       setErrors({
+//         ...errors,
+//         server: "Failed to update profile. Please try again.",
+//       });
+//     }
+//   };
 
-  if (loading) {
-    return <LoadingSpinner text="Loading profile..." />;
-  }
+//   if (loading) {
+//     return <LoadingSpinner text="Loading profile..." />;
+//   }
 
-  return (
-    <div className="p-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
-            My Profile
-          </h2>
-          <p className="text-gray-500 mt-1">
-            Manage your personal information and account settings.
-          </p>
-        </div>
-        {!isEditing && (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
-          >
-            <FiEdit2 className="mr-2" />
-            Edit Profile
-          </button>
-        )}
-      </div>
+//   return (
+//     <div className="p-6">
+//       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+//         <div>
+//           <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
+//             My Profile
+//           </h2>
+//           <p className="text-gray-500 mt-1">
+//             Manage your personal information and account settings.
+//           </p>
+//         </div>
+//         {!isEditing && (
+//           <button
+//             onClick={() => setIsEditing(true)}
+//             className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
+//           >
+//             <FiEdit2 className="mr-2" />
+//             Edit Profile
+//           </button>
+//         )}
+//       </div>
 
-      {successMessage && (
-        <div className="mb-6">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="flex items-start">
-              <FiCheckCircle className="text-green-600 mt-0.5 mr-3 flex-shrink-0" />
-              <div>
-                <p className="text-sm text-green-800">{successMessage}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+//       {successMessage && (
+//         <div className="mb-6">
+//           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+//             <div className="flex items-start">
+//               <FiCheckCircle className="text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+//               <div>
+//                 <p className="text-sm text-green-800">{successMessage}</p>
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+//       )}
 
-      {errors.server && (
-        <div className="mb-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-start">
-              <FiAlertCircle className="text-red-600 mt-0.5 mr-3 flex-shrink-0" />
-              <div>
-                <p className="text-sm text-red-800">{errors.server}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+//       {errors.server && (
+//         <div className="mb-6">
+//           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+//             <div className="flex items-start">
+//               <FiAlertCircle className="text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+//               <div>
+//                 <p className="text-sm text-red-800">{errors.server}</p>
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+//       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
-          {isEditing ? (
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                    Personal Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label
-                        htmlFor="name"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Full Name *
-                      </label>
-                      <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className={`w-full px-3 py-2 border ${
-                          errors.name ? "border-red-300" : "border-gray-300"
-                        } rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                      />
-                      {errors.name && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {errors.name}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="email"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Email Address *
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className={`w-full px-3 py-2 border ${
-                          errors.email ? "border-red-300" : "border-gray-300"
-                        } rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                      />
-                      {errors.email && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {errors.email}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="phone"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        id="phone"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        className={`w-full px-3 py-2 border ${
-                          errors.phone ? "border-red-300" : "border-gray-300"
-                        } rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                      />
-                      {errors.phone && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {errors.phone}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
+//       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+//         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
+//           {isEditing ? (
+//             <form onSubmit={handleSubmit}>
+//               <div className="space-y-6">
+//                 <div>
+//                   <h3 className="text-lg font-semibold text-gray-800 mb-4">
+//                     Personal Information
+//                   </h3>
+//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+//                     <div>
+//                       <label
+//                         htmlFor="name"
+//                         className="block text-sm font-medium text-gray-700 mb-1"
+//                       >
+//                         Full Name *
+//                       </label>
+//                       <input
+//                         type="text"
+//                         id="name"
+//                         name="name"
+//                         value={formData.name}
+//                         onChange={handleInputChange}
+//                         className={`w-full px-3 py-2 border ${
+//                           errors.name ? "border-red-300" : "border-gray-300"
+//                         } rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+//                       />
+//                       {errors.name && (
+//                         <p className="mt-1 text-sm text-red-600">
+//                           {errors.name}
+//                         </p>
+//                       )}
+//                     </div>
+//                     <div>
+//                       <label
+//                         htmlFor="email"
+//                         className="block text-sm font-medium text-gray-700 mb-1"
+//                       >
+//                         Email Address *
+//                       </label>
+//                       <input
+//                         type="email"
+//                         id="email"
+//                         name="email"
+//                         value={formData.email}
+//                         onChange={handleInputChange}
+//                         className={`w-full px-3 py-2 border ${
+//                           errors.email ? "border-red-300" : "border-gray-300"
+//                         } rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+//                       />
+//                       {errors.email && (
+//                         <p className="mt-1 text-sm text-red-600">
+//                           {errors.email}
+//                         </p>
+//                       )}
+//                     </div>
+//                     <div>
+//                       <label
+//                         htmlFor="phone"
+//                         className="block text-sm font-medium text-gray-700 mb-1"
+//                       >
+//                         Phone Number
+//                       </label>
+//                       <input
+//                         type="tel"
+//                         id="phone"
+//                         name="phone"
+//                         value={formData.phone}
+//                         onChange={handleInputChange}
+//                         className={`w-full px-3 py-2 border ${
+//                           errors.phone ? "border-red-300" : "border-gray-300"
+//                         } rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+//                       />
+//                       {errors.phone && (
+//                         <p className="mt-1 text-sm text-red-600">
+//                           {errors.phone}
+//                         </p>
+//                       )}
+//                     </div>
+//                   </div>
+//                 </div>
 
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                    Address
-                  </h3>
-                  <div>
-                    <label
-                      htmlFor="address"
-                      className="block text-sm font-medium text-gray-700 mb-1"
-                    >
-                      Street Address
-                    </label>
-                    <textarea
-                      id="address"
-                      name="address"
-                      rows={3}
-                      value={formData.address}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
+//                 <div>
+//                   <h3 className="text-lg font-semibold text-gray-800 mb-4">
+//                     Address
+//                   </h3>
+//                   <div>
+//                     <label
+//                       htmlFor="address"
+//                       className="block text-sm font-medium text-gray-700 mb-1"
+//                     >
+//                       Street Address
+//                     </label>
+//                     <textarea
+//                       id="address"
+//                       name="address"
+//                       rows={3}
+//                       value={formData.address}
+//                       onChange={handleInputChange}
+//                       className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+//                     />
+//                   </div>
+//                 </div>
 
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditing(false);
-                      setErrors({});
-                      setFormData({
-                        name: user.name || "",
-                        email: user.email || "",
-                        phone: user.phone || "",
-                        address: user.address || "",
-                      });
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </div>
-            </form>
-          ) : (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                  Personal Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Full Name</p>
-                    <p className="text-gray-800 font-medium mt-1">
-                      {user.name || "Not provided"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Email Address</p>
-                    <p className="text-gray-800 font-medium mt-1">
-                      {user.email || "Not provided"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Phone Number</p>
-                    <p className="text-gray-800 font-medium mt-1">
-                      {user.phone || "Not provided"}
-                    </p>
-                  </div>
-                </div>
-              </div>
+//                 <div className="flex justify-end space-x-3 pt-4">
+//                   <button
+//                     type="button"
+//                     onClick={() => {
+//                       setIsEditing(false);
+//                       setErrors({});
+//                       setFormData({
+//                         name: user.name || "",
+//                         email: user.email || "",
+//                         phone: user.phone || "",
+//                         address: user.address || "",
+//                       });
+//                     }}
+//                     className="px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+//                   >
+//                     Cancel
+//                   </button>
+//                   <button
+//                     type="submit"
+//                     className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+//                   >
+//                     Save Changes
+//                   </button>
+//                 </div>
+//               </div>
+//             </form>
+//           ) : (
+//             <div className="space-y-6">
+//               <div>
+//                 <h3 className="text-lg font-semibold text-gray-800 mb-4">
+//                   Personal Information
+//                 </h3>
+//                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+//                   <div>
+//                     <p className="text-sm text-gray-500">Full Name</p>
+//                     <p className="text-gray-800 font-medium mt-1">
+//                       {user.name || "Not provided"}
+//                     </p>
+//                   </div>
+//                   <div>
+//                     <p className="text-sm text-gray-500">Email Address</p>
+//                     <p className="text-gray-800 font-medium mt-1">
+//                       {user.email || "Not provided"}
+//                     </p>
+//                   </div>
+//                   <div>
+//                     <p className="text-sm text-gray-500">Phone Number</p>
+//                     <p className="text-gray-800 font-medium mt-1">
+//                       {user.phone || "Not provided"}
+//                     </p>
+//                   </div>
+//                 </div>
+//               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                  Address
-                </h3>
-                <div>
-                  <p className="text-sm text-gray-500">Street Address</p>
-                  <p className="text-gray-800 font-medium mt-1">
-                    {user.address || "Not provided"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+//               <div>
+//                 <h3 className="text-lg font-semibold text-gray-800 mb-4">
+//                   Address
+//                 </h3>
+//                 <div>
+//                   <p className="text-sm text-gray-500">Street Address</p>
+//                   <p className="text-gray-800 font-medium mt-1">
+//                     {user.address || "Not provided"}
+//                   </p>
+//                 </div>
+//               </div>
+//             </div>
+//           )}
+//         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-6 space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              Account Security
-            </h3>
-            <button className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200 group">
-              <div className="flex items-center">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mr-3 group-hover:bg-blue-100">
-                  <FiUser className="text-sm" />
-                </div>
-                <span className="text-sm font-medium text-gray-700">
-                  Change Password
-                </span>
-              </div>
-              <FiChevronRight className="text-gray-400" />
-            </button>
-            <button className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200 group mt-3">
-              <div className="flex items-center">
-                <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center mr-3 group-hover:bg-yellow-100">
-                  <FiBell className="text-sm" />
-                </div>
-                <span className="text-sm font-medium text-gray-700">
-                  Notification Settings
-                </span>
-              </div>
-              <FiChevronRight className="text-gray-400" />
-            </button>
-          </div>
+//         <div className="bg-white rounded-xl shadow-sm p-6 space-y-6">
+//           <div>
+//             <h3 className="text-lg font-semibold text-gray-800 mb-4">
+//               Account Security
+//             </h3>
+//             <button className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200 group">
+//               <div className="flex items-center">
+//                 <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mr-3 group-hover:bg-blue-100">
+//                   <FiUser className="text-sm" />
+//                 </div>
+//                 <span className="text-sm font-medium text-gray-700">
+//                   Change Password
+//                 </span>
+//               </div>
+//               <FiChevronRight className="text-gray-400" />
+//             </button>
+//             <button className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200 group mt-3">
+//               <div className="flex items-center">
+//                 <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center mr-3 group-hover:bg-yellow-100">
+//                   <FiBell className="text-sm" />
+//                 </div>
+//                 <span className="text-sm font-medium text-gray-700">
+//                   Notification Settings
+//                 </span>
+//               </div>
+//               <FiChevronRight className="text-gray-400" />
+//             </button>
+//           </div>
 
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              Danger Zone
-            </h3>
-            <button
-              onClick={() => {
-                if (window.confirm("Are you sure you want to log out?")) {
-                  logout();
-                }
-              }}
-              className="w-full flex items-center justify-between p-3 bg-red-50 hover:bg-red-100 rounded-lg transition-colors duration-200 group"
-            >
-              <div className="flex items-center">
-                <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center mr-3 group-hover:bg-red-100">
-                  <FiLogOut className="text-sm" />
-                </div>
-                <span className="text-sm font-medium text-red-600">
-                  Log Out
-                </span>
-              </div>
-              <FiChevronRight className="text-red-400" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+//           <div>
+//             <h3 className="text-lg font-semibold text-gray-800 mb-4">
+//               Danger Zone
+//             </h3>
+//             <button
+//               onClick={() => {
+//                 if (window.confirm("Are you sure you want to log out?")) {
+//                   logout();
+//                 }
+//               }}
+//               className="w-full flex items-center justify-between p-3 bg-red-50 hover:bg-red-100 rounded-lg transition-colors duration-200 group"
+//             >
+//               <div className="flex items-center">
+//                 <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center mr-3 group-hover:bg-red-100">
+//                   <FiLogOut className="text-sm" />
+//                 </div>
+//                 <span className="text-sm font-medium text-red-600">
+//                   Log Out
+//                 </span>
+//               </div>
+//               <FiChevronRight className="text-red-400" />
+//             </button>
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
 // Main Dashboard Layout
 const DashboardLayout = () => {
@@ -1265,7 +1265,6 @@ const DashboardLayout = () => {
       icon: <FiShoppingBag />,
       label: "My Products",
     },
-    { path: "/dashboard/profile", icon: <FiUser />, label: "Profile" },
   ];
 
   return (
@@ -1424,5 +1423,5 @@ const DashboardLayout = () => {
   );
 };
 
-export { DashboardHome, MyOrders, MyProducts, Profile, DashboardLayout };
+export { DashboardHome, MyOrders, MyProducts, DashboardLayout };
 export default DashboardLayout;
