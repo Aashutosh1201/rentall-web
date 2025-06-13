@@ -270,9 +270,11 @@ function App() {
           <Route
             path="/dashboard/*"
             element={
-              <DashboardLayout>
-                <Dashboard />
-              </DashboardLayout>
+              <Suspense fallback={<div>Loading...</div>}>
+                <DashboardLayout>
+                  <Dashboard />
+                </DashboardLayout>
+              </Suspense>
             }
           />
           <Route
