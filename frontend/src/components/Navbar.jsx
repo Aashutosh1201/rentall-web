@@ -198,11 +198,13 @@ const Navbar = () => {
               {isAuthenticated() ? (
                 <div className="flex items-center space-x-4">
                   {/* Notification bell */}
-                  <button className="hidden lg:block p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <span className="sr-only">View notifications</span>
-                    <FiBell className="h-6 w-6" />
-                    <span className="absolute top-3 right-28 h-2 w-2 rounded-full bg-red-500"></span>
-                  </button>
+                  <div className="hidden lg:block relative">
+                    <button className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <span className="sr-only">View notifications</span>
+                      <FiBell className="h-6 w-6" />
+                    </button>
+                    <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
+                  </div>
 
                   {/* Dashboard Link */}
                   <NavLink
