@@ -289,10 +289,10 @@ const DashboardHome = () => {
       color: "blue",
     },
     {
-      title: "Active Orders",
-      value: stats?.activeOrders || 0,
-      change: `${stats?.activeOrders || 0} currently rented`,
-      icon: <FiPackage className="text-xl" />,
+      title: "Active Rentals",
+      value: stats?.myActiveRentals || 0,
+      change: `${stats?.myActiveRentals || 0} currently rented`,
+      icon: <FiTruck className="text-xl" />,
       color: "green",
     },
     {
