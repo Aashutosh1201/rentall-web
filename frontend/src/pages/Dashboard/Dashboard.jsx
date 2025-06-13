@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { NavLink } from "react-router-dom";
+import React, { useState, useEffect, Suspense } from "react";
 import {
   FiHome,
   FiPackage,
@@ -27,13 +26,24 @@ import {
   FiTruck,
   FiCreditCard,
 } from "react-icons/fi";
-import { Outlet } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/Navbar";
+import LoadingSpinner from "../../components/LoadingSpinner";
 
 // API service functions
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:8000";
+
+// 2. Check if token exists in localStorage
+const checkAuth = () => {
+  const token = localStorage.getItem("token");
+  console.log("Auth token exists:", !!token);
+  console.log(
+    "Token preview:",
+    token ? token.substring(0, 20) + "..." : "No token"
+  );
+  return token;
+};
 
 const api = {
   // Get auth token from localStorage
@@ -147,14 +157,6 @@ const getTimeAgo = (dateString) => {
     return `${Math.floor(diffInSeconds / 3600)} hours ago`;
   return `${Math.floor(diffInSeconds / 86400)} days ago`;
 };
-
-// Loading Component
-const LoadingSpinner = ({ text = "Loading..." }) => (
-  <div className="flex flex-col items-center justify-center min-h-96 space-y-4">
-    <FiLoader className="animate-spin text-4xl text-blue-600" />
-    <p className="text-gray-500">{text}</p>
-  </div>
-);
 
 // Error Component
 const ErrorMessage = ({ error, onRetry }) => (
@@ -1359,6 +1361,9 @@ const DashboardLayout = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Top navbar */}
+      <Navbar />
+
       {/* Mobile menu */}
       <div className="lg:hidden fixed inset-0 z-40">
         <div
@@ -1470,7 +1475,6 @@ const DashboardLayout = () => {
 
         {/* Main content */}
         <div className="flex-1 lg:ml-64">
-          {/* Top navbar */}
           <header className="bg-white shadow-sm border-b">
             <div className="px-6 py-4 flex items-center justify-between">
               <div className="flex items-center">
@@ -1501,7 +1505,9 @@ const DashboardLayout = () => {
 
           {/* Page content */}
           <main className="p-6">
-            <Outlet />
+            <Suspense fallback={<LoadingSpinner text="Loading dashboard..." />}>
+              <Outlet />
+            </Suspense>
           </main>
         </div>
       </div>

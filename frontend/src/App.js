@@ -19,6 +19,13 @@ import RentalHistory from "./pages/RentalHistory";
 import VerificationPage from "./pages/VerificationPage";
 import EmailVerifyHandler from "./components/EmailVerifyHandler";
 import Profile from "./pages/Profile";
+import {
+  DashboardHome,
+  MyOrders,
+  MyProducts,
+  DashboardLayout,
+  Profile as DashboardProfile, // ✅ Renamed to avoid conflict
+} from "./pages/Dashboard/Dashboard";
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
@@ -50,13 +57,13 @@ const PublicLayout = ({ children }) => (
   </div>
 );
 
-const DashboardLayout = ({ children }) => (
-  <PrivateRoute>
-    <div className="min-h-screen bg-gray-50">
-      <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
-    </div>
-  </PrivateRoute>
-);
+// const DashboardLayout = ({ children }) => (
+//   <PrivateRoute>
+//     <div className="min-h-screen bg-gray-50">
+//       <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
+//     </div>
+//   </PrivateRoute>
+// );
 
 // Home page component
 const Home = () => (
@@ -268,15 +275,21 @@ function App() {
 
           {/* Dashboard and Admin routes */}
           <Route
-            path="/dashboard/*"
+            path="/dashboard"
             element={
-              <Suspense fallback={<div>Loading...</div>}>
-                <DashboardLayout>
-                  <Dashboard />
-                </DashboardLayout>
+              <Suspense fallback={<LoadingSpinner />}>
+                <PrivateRoute>
+                  <DashboardLayout />
+                </PrivateRoute>
               </Suspense>
             }
-          />
+          >
+            <Route index element={<DashboardHome />} />
+            <Route path="orders" element={<MyOrders />} />
+            <Route path="products" element={<MyProducts />} />
+            <Route path="profile" element={<DashboardProfile />} />
+          </Route>
+
           <Route
             path="/admin"
             element={

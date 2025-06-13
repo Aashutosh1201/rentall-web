@@ -37,6 +37,7 @@ router.get("/stats", verifyToken, async (req, res) => {
       return sum + (rental.totalAmount || rental.amount || 0);
     }, 0);
 
+    res.set("Cache-Control", "no-cache");
     res.json({
       totalProducts,
       activeOrders,
