@@ -44,7 +44,7 @@ const createProduct = async (req, res) => {
     );
 
     const product = new Product({
-      owner: req.user.userId,
+      owner: req.user.id,
       title: name,
       description,
       category,

@@ -55,6 +55,15 @@ const api = {
     Authorization: `Bearer ${localStorage.getItem("token")}`,
   }),
 
+  getMyRentals: async () => {
+    const response = await fetch(`${API_BASE}/api/rentals`, {
+      headers: api.getHeaders(),
+    });
+    if (!response.ok) throw new Error("Failed to fetch rentals");
+    const data = await response.json();
+    return data.rentals;
+  },
+
   // Dashboard stats
   getDashboardStats: async () => {
     const response = await fetch(`${API_BASE}/api/dashboard/stats`, {
@@ -459,11 +468,19 @@ const MyOrders = () => {
     try {
       setLoading(true);
       setError(null);
-      const ordersData = await api.getOrders();
-      setOrders(ordersData);
+      const response = await fetch("http://localhost:8000/api/rentals", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch rentals");
+      const data = await response.json();
+      const rentals = data.rentals || [];
+      setOrders(rentals);
     } catch (err) {
+      console.error("MyOrders fetch error:", err);
       setError(err.message);
-      console.error("Orders fetch error:", err);
     } finally {
       setLoading(false);
     }
@@ -473,252 +490,144 @@ const MyOrders = () => {
     fetchOrders();
   }, []);
 
-  const handleStatusUpdate = async (rentalId, newStatus) => {
-    try {
-      await api.updateRentalStatus(rentalId, newStatus);
-      // Refresh orders
-      await fetchOrders();
-    } catch (err) {
-      console.error("Status update error:", err);
-      alert("Failed to update order status");
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "active":
-        return "blue";
-      case "completed":
-        return "green";
-      case "pending":
-        return "yellow";
-      case "cancelled":
-        return "red";
-      default:
-        return "gray";
-    }
-  };
-
   const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.renter?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-
+    const productName = order.product?.title || order.product?.name || "";
+    const matchesSearch = productName
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === "all" ||
       order.status?.toLowerCase() === statusFilter.toLowerCase();
-
     return matchesSearch && matchesStatus;
   });
 
   const statusOptions = [
-    { value: "all", label: "All Statuses" },
+    { value: "all", label: "All" },
     { value: "pending", label: "Pending" },
     { value: "active", label: "Active" },
     { value: "completed", label: "Completed" },
     { value: "cancelled", label: "Cancelled" },
   ];
 
-  if (loading) {
-    return <LoadingSpinner text="Loading orders..." />;
-  }
+  const formatCurrency = (amount) => `Rs. ${amount?.toLocaleString() || 0}`;
+  const formatDate = (date) => new Date(date).toLocaleDateString("en-US");
 
-  if (error) {
-    return <ErrorMessage error={error} onRetry={fetchOrders} />;
-  }
+  if (loading) return <LoadingSpinner text="Loading your orders..." />;
+  if (error) return <ErrorMessage error={error} onRetry={fetchOrders} />;
 
   return (
     <div className="p-6">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
-        <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
-            My Orders
-          </h2>
-          <p className="text-gray-500 mt-1">
-            Manage all your rental orders in one place.
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <div className="relative flex-1">
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search orders..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            {statusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-1">My Orders</h2>
+        <p className="text-gray-500">
+          These are the products you've rented from others.
+        </p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="flex flex-col md:flex-row gap-4 mb-4">
+        <input
+          type="text"
+          placeholder="Search products..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="border px-3 py-2 rounded-md w-full md:w-64"
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border px-3 py-2 rounded-md w-full md:w-48"
+        >
+          {statusOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {filteredOrders.length === 0 ? (
+        <div className="text-center text-gray-500 py-10">
+          <FiPackage className="text-4xl mx-auto mb-4 text-gray-300" />
+          <p>No orders match your filter</p>
+          <button
+            className="mt-2 text-blue-600 hover:text-blue-800 text-sm"
+            onClick={() => {
+              setSearchTerm("");
+              setStatusFilter("all");
+            }}
+          >
+            Clear Filters
+          </button>
+        </div>
+      ) : (
+        <div className="overflow-x-auto bg-white rounded-xl shadow-sm">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
                   Product
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Renter
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
                   Dates
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                  Amount
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
                   Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredOrders.length > 0 ? (
-                filteredOrders.map((order) => (
-                  <tr
-                    key={order._id}
-                    className="hover:bg-gray-50 transition-colors duration-150"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div
-                        className="flex items-center cursor-pointer hover:text-blue-600"
-                        onClick={() =>
-                          navigate(`/product/${order.product?._id}`)
+            <tbody className="divide-y divide-gray-100">
+              {filteredOrders.map((order) => (
+                <tr key={order._id}>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center space-x-3">
+                      <img
+                        src={
+                          order.product?.imageUrl ||
+                          "https://via.placeholder.com/40"
                         }
-                      >
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <img
-                            className="h-10 w-10 rounded-lg object-cover"
-                            src={
-                              order.product?.images?.[0] ||
-                              "https://via.placeholder.com/40"
-                            }
-                            alt={order.product?.name}
-                          />
+                        alt="Product"
+                        className="w-10 h-10 object-cover rounded-md"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {order.product?.title || order.product?.name}
                         </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {order.product?.name || "Unknown Product"}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {order.product?.category || "N/A"}
-                          </div>
+                        <div className="text-sm text-gray-500">
+                          {order.product?.category || "N/A"}
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {order.renter?.name || "Unknown Renter"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {order.renter?.email || "N/A"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <FiCalendar className="mr-2 text-gray-400" />
-                        <div>
-                          <div>{formatDate(order.startDate)}</div>
-                          <div className="text-xs text-gray-400">to</div>
-                          <div>{formatDate(order.endDate)}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {formatCurrency(order.totalAmount || order.amount)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          getStatusColor(order.status) === "blue"
-                            ? "bg-blue-100 text-blue-800"
-                            : getStatusColor(order.status) === "green"
-                              ? "bg-green-100 text-green-800"
-                              : getStatusColor(order.status) === "yellow"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                      {order.status === "pending" && (
-                        <>
-                          <button
-                            onClick={() =>
-                              handleStatusUpdate(order._id, "active")
-                            }
-                            className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                            title="Accept"
-                          >
-                            <FiCheck className="mr-1" /> Accept
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleStatusUpdate(order._id, "cancelled")
-                            }
-                            className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                            title="Reject"
-                          >
-                            <FiX className="mr-1" /> Reject
-                          </button>
-                        </>
-                      )}
-                      {order.status === "active" && (
-                        <button
-                          onClick={() =>
-                            handleStatusUpdate(order._id, "completed")
-                          }
-                          className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                          title="Mark as Completed"
-                        >
-                          <FiCheckCircle className="mr-1" /> Complete
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan="6"
-                    className="px-6 py-12 text-center text-gray-500"
-                  >
-                    <FiPackage className="mx-auto text-4xl mb-4 text-gray-300" />
-                    <p>No orders found matching your criteria</p>
-                    <button
-                      onClick={() => {
-                        setSearchTerm("");
-                        setStatusFilter("all");
-                      }}
-                      className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {formatDate(order.startDate)} – {formatDate(order.endDate)}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-800 font-semibold">
+                    {formatCurrency(order.totalAmount)}
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        order.status === "active"
+                          ? "bg-blue-100 text-blue-800"
+                          : order.status === "completed"
+                            ? "bg-green-100 text-green-800"
+                            : order.status === "cancelled"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-gray-100 text-gray-600"
+                      }`}
                     >
-                      Clear filters
-                    </button>
+                      {order.status}
+                    </span>
                   </td>
                 </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>
-      </div>
+      )}
     </div>
   );
 };

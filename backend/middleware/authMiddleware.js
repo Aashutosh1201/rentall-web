@@ -165,7 +165,8 @@ const verifyToken = async (req, res, next) => {
 
     // Attach user info to request
     req.user = {
-      userId: decoded.userId,
+      id: decoded.userId, // ✅ This is the fix!
+      userId: decoded.userId, // optional (backward compatibility)
       email: decoded.email,
       fullName: decoded.fullName,
       tokenIssuedAt: decoded.iat,

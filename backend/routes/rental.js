@@ -100,6 +100,7 @@ router.post("/create", verifyToken, async (req, res) => {
     const rental = new Rental({
       userId: requiredFields.userId,
       productId,
+      renter: req.user.id,
       startDate: start,
       endDate: end,
       rentalDays,
@@ -168,19 +169,18 @@ router.get("/", verifyToken, async (req, res) => {
     const userId = req.user?.userId || req.user?.id;
     console.log("Fetching rentals for userId:", userId);
 
-    // Get rentals with product population
+    // Fetch rentals by user, populate product info
     const rentals = await Rental.find({ userId })
       .populate({
         path: "productId",
         select:
           "title description imageUrl pricePerDay category location owner",
-        options: { strictPopulate: false }, // This helps with missing references
+        options: { strictPopulate: false },
       })
       .sort({ createdAt: -1 });
 
     console.log("Populated rentals found:", rentals.length);
 
-    // Transform the data to match frontend expectations
     const transformedRentals = rentals.map((rental) => {
       const now = new Date();
       const endDate = new Date(rental.endDate);
@@ -190,25 +190,21 @@ router.get("/", verifyToken, async (req, res) => {
           ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24))
           : 0;
 
-      // Convert to plain object and transform productId to product
       const rentalObj = rental.toObject();
 
-      // Move productId data to product field for frontend compatibility
-      const transformedRental = {
+      return {
         ...rentalObj,
-        product: rentalObj.productId, // This is the key fix!
+        product: rentalObj.productId, // rename for frontend compatibility
+        productId: rentalObj.productId?._id || rentalObj.productId,
         isOverdue,
         daysRemaining,
-        // Keep original productId as reference if needed
-        productId: rentalObj.productId?._id || rentalObj.productId,
+
+        // Add dummy renter field to satisfy MyOrders table UI
+        renter: {
+          name: "You",
+          email: req.user.email || "you@example.com",
+        },
       };
-
-      console.log(`Rental ${rental._id}:`);
-      console.log("- Product populated:", !!transformedRental.product?.title);
-      console.log("- Product title:", transformedRental.product?.title);
-      console.log("- Product imageUrl:", transformedRental.product?.imageUrl);
-
-      return transformedRental;
     });
 
     res.json({
