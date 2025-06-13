@@ -83,6 +83,17 @@ router.post(
   }
 );
 
+router.get("/detail/:email", async (req, res) => {
+  try {
+    const kyc = await KYC.findOne({ email: req.params.email });
+    if (!kyc) return res.status(404).json({ message: "No KYC found" });
+    res.json({ kyc });
+  } catch (err) {
+    console.error("KYC detail error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 router.get("/status/:email", async (req, res) => {
   try {
     const kyc = await KYC.findOne({ email: req.params.email });

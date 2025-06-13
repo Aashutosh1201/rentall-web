@@ -176,17 +176,17 @@ const Navbar = () => {
                     </NavLink>
 
                     {/* Profile dropdown - Simplified on medium screens */}
-                    <div className="ml-3 relative flex items-center">
+                    <NavLink
+                      to="/profile"
+                      className="ml-3 relative flex items-center"
+                    >
                       <button className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <span className="sr-only">Open user menu</span>
                         <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-blue-700 flex items-center justify-center text-white font-medium">
                           {user?.name?.charAt(0) || "U"}
                         </div>
                       </button>
-                      <span className="hidden xl:inline ml-2 text-sm font-medium text-gray-700">
-                        {user?.name || "User"}
-                      </span>
-                    </div>
+                    </NavLink>
 
                     {/* Updated Logout Button - Icon only on medium screens */}
                     <button

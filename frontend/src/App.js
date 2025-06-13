@@ -18,6 +18,7 @@ import PaymentCallback from "./components/PaymentCallback";
 import RentalHistory from "./pages/RentalHistory";
 import VerificationPage from "./pages/VerificationPage";
 import EmailVerifyHandler from "./components/EmailVerifyHandler";
+import Profile from "./pages/Profile";
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
@@ -105,7 +106,16 @@ function App() {
           />
           <Route path="/verify-account" element={<VerificationPage />} />
           <Route path="/verify-email/:token" element={<EmailVerifyHandler />} />
-
+          <Route
+            path="/profile"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <Profile />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
           <Route
             path="/products"
             element={
