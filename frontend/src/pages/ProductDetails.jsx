@@ -1,6 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { FaMapMarkerAlt, FaCalendarAlt } from "react-icons/fa";
+import {
+  FaMapMarkerAlt,
+  FaCalendarAlt,
+  FaStar,
+  FaRegStar,
+  FaStarHalfAlt,
+} from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
 
@@ -11,6 +17,7 @@ export default function ProductDetails() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(5);
+  const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState("");
   const userToken = localStorage.getItem("token");
 
@@ -76,6 +83,49 @@ export default function ProductDetails() {
     } else {
       navigate(`/rent/${id}`);
     }
+  };
+
+  const renderStars = (ratingValue) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <span
+          key={i}
+          className={`text-2xl cursor-pointer ${
+            i <= (hoverRating || ratingValue)
+              ? "text-yellow-400"
+              : "text-gray-300"
+          }`}
+          onClick={() => setRating(i)}
+          onMouseEnter={() => setHoverRating(i)}
+          onMouseLeave={() => setHoverRating(0)}
+        >
+          {i <= (hoverRating || ratingValue) ? <FaStar /> : <FaRegStar />}
+        </span>
+      );
+    }
+    return stars;
+  };
+
+  const renderStaticStars = (ratingValue) => {
+    const stars = [];
+    const fullStars = Math.floor(ratingValue);
+    const hasHalfStar = ratingValue % 1 >= 0.5;
+
+    for (let i = 1; i <= fullStars; i++) {
+      stars.push(<FaStar key={i} className="text-yellow-400" />);
+    }
+
+    if (hasHalfStar) {
+      stars.push(<FaStarHalfAlt key="half" className="text-yellow-400" />);
+    }
+
+    const emptyStars = 5 - stars.length;
+    for (let i = 1; i <= emptyStars; i++) {
+      stars.push(<FaRegStar key={`empty-${i}`} className="text-yellow-400" />);
+    }
+
+    return stars;
   };
 
   if (loading || authLoading)
@@ -166,14 +216,14 @@ export default function ProductDetails() {
                   <button
                     onClick={handleRentClick}
                     disabled={authLoading}
-                    className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transition"
+                    className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transition transform hover:scale-105"
                   >
                     {authLoading ? "Loading..." : "Rent Now"}
                   </button>
                   <button
                     onClick={handleAddToCartClick}
                     disabled={authLoading}
-                    className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transition"
+                    className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transition transform hover:scale-105"
                   >
                     {authLoading ? "Loading..." : "Add to Cart"}
                   </button>
@@ -189,15 +239,23 @@ export default function ProductDetails() {
                       {product.reviews.map((review) => (
                         <div
                           key={review._id}
-                          className="bg-white p-4 rounded-lg shadow-sm border"
+                          className="bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-100"
                         >
-                          <p className="font-semibold text-gray-800">
-                            {review.user?.fullName || "Anonymous"}
+                          <div className="flex justify-between items-start">
+                            <p className="font-semibold text-gray-800">
+                              {review.user?.fullName || "Anonymous"}
+                            </p>
+                            <div className="flex items-center space-x-1">
+                              {renderStaticStars(review.rating)}
+                              <span className="text-gray-500 ml-1">
+                                ({review.rating.toFixed(1)})
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-gray-600 mt-2">{review.comment}</p>
+                          <p className="text-gray-400 text-sm mt-3">
+                            {new Date(review.createdAt).toLocaleDateString()}
                           </p>
-                          <p className="text-yellow-500">
-                            {`★`.repeat(review.rating)}
-                          </p>
-                          <p className="text-gray-600">{review.comment}</p>
                         </div>
                       ))}
                     </div>
@@ -208,41 +266,42 @@ export default function ProductDetails() {
 
                 {/* Review Form */}
                 {user && (
-                  <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
+                  <div className="mt-8 bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-100">
                     <h3 className="text-xl font-semibold text-gray-800 mb-4">
                       Leave a Review
                     </h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-gray-700 font-medium">
+                        <label className="block text-gray-700 font-medium mb-2">
                           Rating
                         </label>
-                        <select
-                          value={rating}
-                          onChange={(e) => setRating(Number(e.target.value))}
-                          className="mt-1 block w-full p-2 border border-gray-300 rounded"
-                        >
-                          {[5, 4, 3, 2, 1].map((val) => (
-                            <option key={val} value={val}>
-                              {val} Star{val > 1 ? "s" : ""}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex items-center space-x-2">
+                          {renderStars(rating)}
+                          <span className="ml-2 text-gray-600">
+                            ({rating} star{rating !== 1 ? "s" : ""})
+                          </span>
+                        </div>
                       </div>
                       <div>
-                        <label className="block text-gray-700 font-medium">
+                        <label className="block text-gray-700 font-medium mb-2">
                           Comment
                         </label>
                         <textarea
                           value={comment}
                           onChange={(e) => setComment(e.target.value)}
                           rows="4"
-                          className="mt-1 block w-full p-2 border border-gray-300 rounded"
+                          className="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Share your experience with this product..."
                         />
                       </div>
                       <button
                         onClick={submitReview}
-                        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                        disabled={!comment.trim()}
+                        className={`px-6 py-3 rounded-lg font-medium transition ${
+                          comment.trim()
+                            ? "bg-blue-600 text-white hover:bg-blue-700 transform hover:scale-105"
+                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        }`}
                       >
                         Submit Review
                       </button>
