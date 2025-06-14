@@ -84,9 +84,20 @@ export default function Cart() {
 
     try {
       const res = await axios.post(
-        "http://localhost:8000/api/payment/create",
-        { amount: totalAmount * 100 },
-        { headers: { Authorization: `Bearer ${token}` } }
+        "http://localhost:8000/api/payment/khalti/initiate",
+        {
+          return_url: "http://localhost:3000/dashboard/orders",
+          website_url: "http://localhost:3000",
+          amount: totalAmount * 100,
+          purchase_order_id: `cart-${Date.now()}`,
+          purchase_order_name: "Cart Checkout",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
       );
 
       const { payment_url } = res.data;
