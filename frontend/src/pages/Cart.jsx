@@ -1,180 +1,186 @@
-import { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { FaTrash, FaShoppingCart } from "react-icons/fa";
 
 export default function Cart() {
-  const [cartItems, setCartItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [cart, setCart] = useState(null);
+  const [errors, setErrors] = useState({});
+  const token = localStorage.getItem("token");
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   useEffect(() => {
-    fetchCartItems();
+    fetchCart();
   }, []);
 
-  const fetchCartItems = async () => {
-    try {
-      const res = await fetch("http://localhost:8000/api/cart", {
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-        },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setCartItems(data.items); // ✅ Use `.items` from backend response
-      } else {
-        setError(data.message || "Failed to fetch cart items");
-      }
-    } catch (err) {
-      setError("Failed to fetch cart items");
-      console.error("Error fetching cart:", err);
-    } finally {
-      setLoading(false);
-    }
+  const fetchCart = () => {
+    axios
+      .get("http://localhost:8000/api/cart", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        const updated = res.data.items.map((item) => {
+          const today = new Date().toISOString().split("T")[0];
+          return {
+            ...item,
+            startDate: item.startDate?.split("T")[0] || today,
+            rentalDays: item.rentalDays || 1,
+            endDate: item.endDate?.split("T")[0] || today,
+          };
+        });
+        setCart({ ...res.data, items: updated });
+      })
+      .catch((err) => console.error(err));
   };
 
-  const removeFromCart = async (productId) => {
-    try {
-      const res = await fetch(`http://localhost:8000/api/cart/${productId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-        },
-      });
+  const updateItem = (index, field, value) => {
+    const updatedItems = [...cart.items];
+    updatedItems[index][field] = value;
 
-      if (res.ok) {
-        const data = await res.json();
-        setCartItems(data.items); // ✅ update from server response
-      } else {
-        const data = await res.json();
-        setError(data.message || "Failed to remove item from cart");
-      }
-    } catch (err) {
-      setError("Failed to remove item from cart");
-      console.error("Error removing from cart:", err);
+    if (field === "rentalDays") {
+      const start = new Date(updatedItems[index].startDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + Number(value));
+      updatedItems[index].endDate = end.toISOString().split("T")[0];
     }
+
+    setCart({ ...cart, items: updatedItems });
   };
 
-  const proceedToCheckout = () => {
-    navigate("/checkout");
+  const removeFromCart = (productId) => {
+    axios
+      .delete(`http://localhost:8000/api/cart/${productId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => setCart(res.data))
+      .catch((err) => console.error(err));
   };
 
   const calculateTotal = () => {
-    return cartItems.reduce((total, item) => {
-      return total + item.product.pricePerDay * item.quantity; // ✅ use quantity
+    return cart.items.reduce((total, item) => {
+      return total + item.product.pricePerDay * item.rentalDays;
     }, 0);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  const validateAndCheckout = async () => {
+    const validationErrors = {};
+    const today = new Date().toISOString().split("T")[0];
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center py-10 text-red-500 bg-red-50 p-8 rounded-lg shadow-md">
-          <h2 className="text-2xl font-semibold mb-2">Error</h2>
-          <p className="text-gray-600">{error}</p>
-        </div>
-      </div>
-    );
-  }
+    cart.items.forEach((item, i) => {
+      if (!item.startDate || !item.endDate) {
+        validationErrors[i] = "Start and end date required";
+      } else if (item.startDate < today) {
+        validationErrors[i] = "Start date cannot be in past";
+      } else if (item.endDate <= item.startDate) {
+        validationErrors[i] = "End must be after start";
+      }
+    });
 
-  if (cartItems.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <FaShoppingCart className="mx-auto h-12 w-12 text-gray-400" />
-            <h2 className="mt-4 text-2xl font-bold text-gray-900">
-              Your cart is empty
-            </h2>
-            <p className="mt-2 text-gray-600">
-              Add some items to your cart to get started
-            </p>
-            <button
-              onClick={() => navigate("/products")}
-              className="mt-6 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Browse Products
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    const totalAmount = calculateTotal();
+
+    try {
+      const res = await axios.post(
+        "http://localhost:8000/api/payment/create",
+        { amount: totalAmount * 100 },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const { payment_url } = res.data;
+      window.location.href = payment_url;
+    } catch (err) {
+      console.error("Payment error:", err);
+    }
+  };
+
+  if (!cart) return <p>Loading cart...</p>;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Shopping Cart</h1>
-
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="divide-y divide-gray-200">
-            {cartItems.map((item) => (
-              <div key={item.product._id} className="p-6 flex items-center">
-                <img
-                  src={
-                    item.product.imageUrl
-                      ? `http://localhost:8000${item.product.imageUrl}`
-                      : "/no-image.jpg"
-                  }
-                  alt={item.product.title}
-                  className="w-24 h-24 object-cover rounded-lg"
-                />
-                <div className="ml-6 flex-1">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    {item.product.title}
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Quantity: {item.quantity}
-                  </p>
-                  <p className="mt-2 text-lg font-medium text-green-600">
-                    Rs. {item.product.pricePerDay * item.quantity}
-                  </p>
+    <div className="max-w-4xl mx-auto py-10">
+      <h2 className="text-2xl font-bold mb-6">Your Cart</h2>
+      {cart.items.length === 0 ? (
+        <p>Your cart is empty.</p>
+      ) : (
+        <>
+          <ul className="space-y-6">
+            {cart.items.map((item, i) => (
+              <li
+                key={item.product._id}
+                className="border rounded p-4 space-y-3 shadow"
+              >
+                <div className="flex justify-between items-center">
+                  <h3 className="font-semibold">{item.product.title}</h3>
+                  <button
+                    onClick={() => removeFromCart(item.product._id)}
+                    className="text-red-500 text-sm hover:underline"
+                  >
+                    Remove
+                  </button>
                 </div>
-                <button
-                  onClick={() => removeFromCart(item.product._id)}
-                  className="ml-6 p-2 text-gray-400 hover:text-red-500 transition-colors"
-                >
-                  <FaTrash className="w-5 h-5" />
-                </button>
-              </div>
+                <p>Rs. {item.product.pricePerDay} per day</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div>
+                    <label className="text-sm font-medium">Rental Days</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.rentalDays}
+                      onChange={(e) =>
+                        updateItem(i, "rentalDays", e.target.value)
+                      }
+                      className="w-full border p-2 rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Start Date</label>
+                    <input
+                      type="date"
+                      value={item.startDate}
+                      onChange={(e) =>
+                        updateItem(i, "startDate", e.target.value)
+                      }
+                      className="w-full border p-2 rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">End Date</label>
+                    <input
+                      type="date"
+                      value={item.endDate}
+                      onChange={(e) => updateItem(i, "endDate", e.target.value)}
+                      className="w-full border p-2 rounded"
+                    />
+                  </div>
+                </div>
+                {errors[i] && (
+                  <p className="text-red-500 text-sm mt-1">{errors[i]}</p>
+                )}
+              </li>
             ))}
-          </div>
+          </ul>
 
-          <div className="p-6 bg-gray-50">
-            <div className="flex justify-between items-center mb-6">
-              <span className="text-lg font-medium text-gray-900">
-                Total Amount:
-              </span>
-              <span className="text-2xl font-bold text-green-600">
-                Rs. {calculateTotal()}
-              </span>
-            </div>
-            <div className="flex justify-end space-x-4">
-              <button
-                onClick={() => navigate("/products")}
-                className="px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Continue Shopping
-              </button>
-              <button
-                onClick={proceedToCheckout}
-                className="px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Proceed to Checkout
-              </button>
-            </div>
+          <div className="flex justify-between items-center mt-8">
+            <button
+              onClick={() => navigate("/products")}
+              className="text-blue-600 hover:underline"
+            >
+              Keep Shopping
+            </button>
+            <span className="text-lg font-semibold">
+              Total: Rs. {calculateTotal()}
+            </span>
+            <button
+              onClick={validateAndCheckout}
+              className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+            >
+              Proceed to Checkout
+            </button>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

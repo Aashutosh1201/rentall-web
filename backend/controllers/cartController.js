@@ -2,7 +2,13 @@ const Cart = require("../models/Cart");
 
 exports.addToCart = async (req, res) => {
   const userId = req.user.id;
-  const { productId, quantity = 1 } = req.body;
+  const {
+    productId,
+    quantity = 1,
+    rentalDays = 1,
+    startDate,
+    endDate,
+  } = req.body;
 
   try {
     let cart = await Cart.findOne({ user: userId });
@@ -13,8 +19,17 @@ exports.addToCart = async (req, res) => {
     );
     if (index > -1) {
       cart.items[index].quantity += quantity;
+      cart.items[index].rentalDays = rentalDays;
+      cart.items[index].startDate = startDate;
+      cart.items[index].endDate = endDate;
     } else {
-      cart.items.push({ product: productId, quantity });
+      cart.items.push({
+        product: productId,
+        quantity,
+        rentalDays,
+        startDate,
+        endDate,
+      });
     }
 
     await cart.save();
