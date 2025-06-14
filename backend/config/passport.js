@@ -41,6 +41,9 @@ passport.use(
             password: Math.random().toString(36).slice(-8),
             // Set a default phone number that can be updated later
             phone: "not provided",
+            isActive: true,
+            emailVerified: true,
+            phoneVerified: false,
           });
         } else {
           console.log("Existing user found:", user.email);

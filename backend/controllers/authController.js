@@ -392,6 +392,42 @@ const registerUser = async (req, res) => {
   }
 };
 
+const completeVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const tempUser = await TempUser.findOne({ email });
+    if (!tempUser) {
+      return res.status(404).json({ message: "Temporary user not found" });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const newUser = new User({
+      fullName: tempUser.fullName,
+      email: tempUser.email,
+      phone: tempUser.phone,
+      password: tempUser.password,
+      isActive: true, // ✅ this makes it work after login
+      createdFromIP: tempUser.registrationIP,
+      userAgent: tempUser.userAgent,
+    });
+
+    await newUser.save();
+    await TempUser.deleteOne({ _id: tempUser._id });
+
+    res
+      .status(201)
+      .json({ message: "User verified and activated successfully" });
+  } catch (error) {
+    console.error("Verification Error:", error);
+    res.status(500).json({ message: "Verification failed" });
+  }
+};
+
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -698,5 +734,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   testEmail,
+  completeVerification,
   registrationLimiter, // Export the rate limiter
 };

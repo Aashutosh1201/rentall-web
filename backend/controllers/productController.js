@@ -104,8 +104,32 @@ const getOneProduct = async (req, res) => {
   }
 };
 
+const addProductReview = async (req, res) => {
+  const { rating, comment } = req.body;
+  const product = await Product.findById(req.params.id);
+
+  if (!product) return res.status(404).json({ error: "Product not found" });
+
+  const alreadyReviewed = product.reviews.find(
+    (r) => r.user.toString() === req.user._id.toString()
+  );
+  if (alreadyReviewed)
+    return res.status(400).json({ error: "Already reviewed" });
+
+  const review = { user: req.user._id, rating: Number(rating), comment };
+  product.reviews.push(review);
+
+  product.averageRating =
+    product.reviews.reduce((sum, r) => sum + r.rating, 0) /
+    product.reviews.length;
+  await product.save();
+
+  res.status(201).json({ message: "Review added" });
+};
+
 module.exports = {
   createProduct,
   getAllProducts,
   getOneProduct,
+  addProductReview,
 };

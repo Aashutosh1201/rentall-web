@@ -45,15 +45,26 @@ const checkAuth = () => {
   return token;
 };
 
+const handleAuthFailure = (response) => {
+  if (response.status === 401 || response.status === 403) {
+    console.warn("Invalid or expired token. Logging out...");
+    localStorage.removeItem("token");
+    window.location.href = "/login";
+  }
+};
+
 const api = {
   // Get auth token from localStorage
   getAuthToken: () => localStorage.getItem("token"),
 
   // Common headers for authenticated requests
-  getHeaders: () => ({
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  }),
+  getHeaders: () => {
+    const token = localStorage.getItem("token");
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  },
 
   getMyRentals: async () => {
     const response = await fetch(`${API_BASE}/api/rentals`, {
@@ -69,7 +80,10 @@ const api = {
     const response = await fetch(`${API_BASE}/api/dashboard/stats`, {
       headers: api.getHeaders(),
     });
-    if (!response.ok) throw new Error("Failed to fetch dashboard stats");
+    if (!response.ok) {
+      handleAuthFailure(response);
+      throw new Error("Failed to fetch dashboard stats");
+    }
     return response.json();
   },
 
@@ -269,6 +283,11 @@ const DashboardHome = () => {
   };
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
     fetchDashboardData();
   }, []);
 

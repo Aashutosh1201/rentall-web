@@ -9,6 +9,7 @@ const {
   forgotPassword,
   resetPassword,
   testEmail,
+  completeVerification,
 } = require("../controllers/authController");
 
 // Google OAuth routes
@@ -16,6 +17,8 @@ router.get(
   "/google",
   passport.authenticate("google", { scope: ["profile", "email"] })
 );
+
+router.post("/verify", completeVerification);
 
 router.get(
   "/google/callback",

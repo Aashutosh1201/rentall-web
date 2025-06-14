@@ -6,7 +6,6 @@ const KYC = require("../models/KYC");
 const User = require("../models/User");
 const cloudinary = require("../config/claudinary");
 const router = express.Router();
-
 const upload = multer({ dest: "temp/" });
 
 router.post(

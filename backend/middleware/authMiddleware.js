@@ -5,7 +5,7 @@ const User = require("../models/User");
 // Rate limiting for authenticated requests
 const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 authenticated requests per windowMs
+  max: 500, // limit each IP to 100 authenticated requests per windowMs
   message: {
     message: "Too many requests from this IP, please try again later.",
   },

@@ -1,14 +1,18 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { FaMapMarkerAlt, FaCalendarAlt, FaTag } from "react-icons/fa";
+import { FaMapMarkerAlt, FaCalendarAlt } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
+import axios from "axios";
 
 export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth(); // Get authLoading
+  const { user, loading: authLoading } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const userToken = localStorage.getItem("token");
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -30,10 +34,32 @@ export default function ProductDetails() {
     fetchProduct();
   }, [id]);
 
-  const handleAddToCartClick = () => {
-    // Wait for auth to load before checking user
-    if (authLoading) return;
+  const submitReview = async () => {
+    try {
+      await axios.post(
+        `http://localhost:8000/api/products/${product._id}/reviews`,
+        { rating, comment },
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      setRating(5);
+      setComment("");
+      // Refresh reviews
+      const updated = await axios.get(
+        `http://localhost:8000/api/products/${product._id}`
+      );
+      setProduct(updated.data);
+    } catch (error) {
+      console.error("Error submitting review:", error.response?.data || error);
+    }
+  };
 
+  const handleAddToCartClick = () => {
+    if (authLoading) return;
     if (!user) {
       localStorage.setItem("redirectAfterLogin", `/rent/${id}?action=cart`);
       navigate("/login");
@@ -43,11 +69,8 @@ export default function ProductDetails() {
   };
 
   const handleRentClick = () => {
-    // Wait for auth to load before checking user
     if (authLoading) return;
-
     if (!user) {
-      // Store the current URL to redirect back after login
       localStorage.setItem("redirectAfterLogin", `/rent/${id}`);
       navigate("/login");
     } else {
@@ -55,7 +78,6 @@ export default function ProductDetails() {
     }
   };
 
-  // Show loading if either product or auth is loading
   if (loading || authLoading)
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -112,14 +134,7 @@ export default function ProductDetails() {
                   <div>
                     <h3 className="font-semibold">Location</h3>
                     <p className="text-gray-600">
-                      {typeof product.location === "string"
-                        ? product.location
-                        : Array.isArray(product.location)
-                          ? product.location.join(", ")
-                          : typeof product.location === "object" &&
-                              product.location.lat
-                            ? `${product.location.lat}, ${product.location.lng}`
-                            : "Not specified"}
+                      {product.location || "Not specified"}
                     </p>
                   </div>
                 </div>
@@ -146,24 +161,94 @@ export default function ProductDetails() {
                   </p>
                 </div>
 
-                {/* Rent Button */}
+                {/* Rent & Cart Buttons */}
                 <div className="mt-8 space-y-4">
                   <button
                     onClick={handleRentClick}
                     disabled={authLoading}
-                    className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transition"
                   >
                     {authLoading ? "Loading..." : "Rent Now"}
                   </button>
-                  {/* Add to cart button */}
                   <button
                     onClick={handleAddToCartClick}
                     disabled={authLoading}
-                    className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-gray-100 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-200 transition"
                   >
                     {authLoading ? "Loading..." : "Add to Cart"}
                   </button>
                 </div>
+
+                {/* Reviews Section */}
+                <div className="mt-12">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                    Customer Reviews
+                  </h2>
+                  {product.reviews && product.reviews.length > 0 ? (
+                    <div className="space-y-6">
+                      {product.reviews.map((review) => (
+                        <div
+                          key={review._id}
+                          className="bg-white p-4 rounded-lg shadow-sm border"
+                        >
+                          <p className="font-semibold text-gray-800">
+                            {review.user?.fullName || "Anonymous"}
+                          </p>
+                          <p className="text-yellow-500">
+                            {`★`.repeat(review.rating)}
+                          </p>
+                          <p className="text-gray-600">{review.comment}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No reviews yet.</p>
+                  )}
+                </div>
+
+                {/* Review Form */}
+                {user && (
+                  <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                      Leave a Review
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-gray-700 font-medium">
+                          Rating
+                        </label>
+                        <select
+                          value={rating}
+                          onChange={(e) => setRating(Number(e.target.value))}
+                          className="mt-1 block w-full p-2 border border-gray-300 rounded"
+                        >
+                          {[5, 4, 3, 2, 1].map((val) => (
+                            <option key={val} value={val}>
+                              {val} Star{val > 1 ? "s" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 font-medium">
+                          Comment
+                        </label>
+                        <textarea
+                          value={comment}
+                          onChange={(e) => setComment(e.target.value)}
+                          rows="4"
+                          className="mt-1 block w-full p-2 border border-gray-300 rounded"
+                        />
+                      </div>
+                      <button
+                        onClick={submitReview}
+                        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                      >
+                        Submit Review
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -113,7 +113,7 @@ const verifyEmailOTP = async (req, res) => {
       message: "Email verified successfully",
       emailVerified: true,
       phoneVerified: tempUser.phoneVerified,
-      isActive: false,
+      isActive: true,
       nextStep: "phone_verification",
     });
   } catch (error) {
@@ -227,7 +227,7 @@ const verifyPhone = async (req, res) => {
       message: "Phone verified successfully",
       emailVerified: tempUser.emailVerified,
       phoneVerified: true,
-      isActive: false,
+      isActive: true,
       nextStep: "email_verification",
     });
   } catch (error) {
