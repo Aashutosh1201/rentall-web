@@ -23,7 +23,7 @@ export default function Cart() {
       });
       const data = await res.json();
       if (res.ok) {
-        setCartItems(data);
+        setCartItems(data.items); // ✅ Use `.items` from backend response
       } else {
         setError(data.message || "Failed to fetch cart items");
       }
@@ -35,9 +35,9 @@ export default function Cart() {
     }
   };
 
-  const removeFromCart = async (itemId) => {
+  const removeFromCart = async (productId) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/cart/${itemId}`, {
+      const res = await fetch(`http://localhost:8000/api/cart/${productId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${user.token}`,
@@ -45,7 +45,8 @@ export default function Cart() {
       });
 
       if (res.ok) {
-        setCartItems(cartItems.filter((item) => item._id !== itemId));
+        const data = await res.json();
+        setCartItems(data.items); // ✅ update from server response
       } else {
         const data = await res.json();
         setError(data.message || "Failed to remove item from cart");
@@ -62,7 +63,7 @@ export default function Cart() {
 
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => {
-      return total + item.product.pricePerDay * item.rentalDays;
+      return total + item.product.pricePerDay * item.quantity; // ✅ use quantity
     }, 0);
   };
 
@@ -117,7 +118,7 @@ export default function Cart() {
         <div className="bg-white shadow-lg rounded-lg overflow-hidden">
           <div className="divide-y divide-gray-200">
             {cartItems.map((item) => (
-              <div key={item._id} className="p-6 flex items-center">
+              <div key={item.product._id} className="p-6 flex items-center">
                 <img
                   src={
                     item.product.imageUrl
@@ -132,20 +133,14 @@ export default function Cart() {
                     {item.product.title}
                   </h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    Rental Period: {item.rentalDays} days
-                  </p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Start Date: {new Date(item.startDate).toLocaleDateString()}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    End Date: {new Date(item.endDate).toLocaleDateString()}
+                    Quantity: {item.quantity}
                   </p>
                   <p className="mt-2 text-lg font-medium text-green-600">
-                    Rs. {item.product.pricePerDay * item.rentalDays}
+                    Rs. {item.product.pricePerDay * item.quantity}
                   </p>
                 </div>
                 <button
-                  onClick={() => removeFromCart(item._id)}
+                  onClick={() => removeFromCart(item.product._id)}
                   className="ml-6 p-2 text-gray-400 hover:text-red-500 transition-colors"
                 >
                   <FaTrash className="w-5 h-5" />

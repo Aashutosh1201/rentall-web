@@ -14,6 +14,7 @@ import {
   FiMenu,
   FiX,
 } from "react-icons/fi";
+import CartIcon from "./CartIcon";
 
 const LogoutConfirmationModal = ({ onConfirm, onCancel }) => {
   return (
@@ -219,6 +220,8 @@ const Navbar = () => {
                   >
                     <FiUser className="mr-1.5" /> Dashboard
                   </NavLink>
+
+                  <CartIcon />
 
                   {/* Profile avatar - now shows KYC selfie if available */}
                   <button

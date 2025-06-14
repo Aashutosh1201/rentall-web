@@ -65,13 +65,20 @@ export default function ProductDetails() {
     }
   };
 
-  const handleAddToCartClick = () => {
-    if (authLoading) return;
-    if (!user) {
-      localStorage.setItem("redirectAfterLogin", `/rent/${id}?action=cart`);
-      navigate("/login");
-    } else {
-      navigate(`/rent/${id}?action=cart`);
+  const handleAddToCartClick = async () => {
+    try {
+      await axios.post(
+        "http://localhost:8000/api/cart/add",
+        { productId: product._id, quantity: 1 },
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
+      alert("Product added to cart!");
+    } catch (error) {
+      console.error("Add to cart failed:", error.response?.data || error);
     }
   };
 

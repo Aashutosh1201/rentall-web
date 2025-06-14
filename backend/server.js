@@ -8,6 +8,7 @@ const passport = require("./config/passport");
 const session = require("express-session");
 const path = require("path");
 const adminRoutes = require("./routes/adminRoutes");
+const cartRoutes = require("./routes/cartRoutes");
 const app = express();
 
 // Middleware
@@ -36,6 +37,7 @@ app.use(
 );
 
 app.use("/api/products", require("./routes/products"));
+app.use("/api/cart", cartRoutes);
 
 // Initialize Passport
 app.use(passport.initialize());
