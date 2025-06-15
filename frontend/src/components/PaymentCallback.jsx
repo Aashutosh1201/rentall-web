@@ -1,4 +1,4 @@
-// Clean PaymentCallback.jsx - No debug logs or debug displays
+// Updated PaymentCallback.jsx - Fixed cart processing and navigation
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -138,7 +138,8 @@ export default function PaymentCallback() {
                   "Payment successful! Your rental has been confirmed."
                 );
                 sessionStorage.removeItem("pendingRental");
-                setTimeout(() => navigate("/rentals"), 3000);
+                sessionStorage.removeItem("pendingCartRental");
+                setTimeout(() => navigate("/dashboard/myorder"), 3000);
               }
               return;
             }
@@ -182,6 +183,17 @@ export default function PaymentCallback() {
         let rentalData = JSON.parse(
           sessionStorage.getItem("pendingRental") || "{}"
         );
+
+        // Check if this is a cart checkout
+        const cartData = JSON.parse(
+          sessionStorage.getItem("pendingCartRental") || "{}"
+        );
+
+        if (cartData?.items?.length > 0) {
+          // Handle cart checkout without auth
+          await processCartWithoutAuth(cartData, pidx, transactionId, amount);
+          return;
+        }
 
         // If no session data, try to extract from URL parameters (merchant_extra)
         if (!rentalData.productId) {
@@ -268,7 +280,7 @@ export default function PaymentCallback() {
             setStatus("success");
             setMessage("Payment successful! Your rental has been confirmed.");
             sessionStorage.removeItem("pendingRental");
-            setTimeout(() => navigate("/rentals"), 3000);
+            setTimeout(() => navigate("/dashboard/myorder"), 3000);
           }
         } else {
           throw new Error(rentalResponse.message || "Failed to create rental");
@@ -278,6 +290,98 @@ export default function PaymentCallback() {
           setStatus("error");
           setMessage(
             `Payment completed but could not create rental automatically. Please contact support with payment reference: ${pidx}`
+          );
+        }
+      }
+    };
+
+    const processCartWithoutAuth = async (
+      cartData,
+      pidx,
+      transactionId,
+      amount
+    ) => {
+      try {
+        // Try to get stored user info
+        const storedUser = localStorage.getItem("user");
+        const storedToken = localStorage.getItem("token");
+
+        if (!storedToken) {
+          throw new Error("Authentication required for cart checkout");
+        }
+
+        let userInfo = null;
+        try {
+          userInfo = storedUser ? JSON.parse(storedUser) : null;
+        } catch (e) {
+          throw new Error("Invalid user data");
+        }
+
+        const headers = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${storedToken}`,
+        };
+
+        // Create rentals for each cart item
+        for (const item of cartData.items) {
+          const rentalRequestData = {
+            productId: item.productId,
+            startDate: item.startDate,
+            endDate: item.endDate,
+            rentalDays: item.rentalDays,
+            totalAmount: item.total,
+            paymentId: pidx,
+            transactionId: transactionId,
+            paymentMethod: "khalti",
+            paymentStatus: "completed",
+          };
+
+          const createResponse = await fetch(
+            "http://localhost:8000/api/rentals/create",
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify(rentalRequestData),
+            }
+          );
+
+          if (!createResponse.ok) {
+            const errorText = await createResponse.text();
+            throw new Error(`Rental creation failed: ${errorText}`);
+          }
+
+          const rentalResponse = await createResponse.json();
+          if (!rentalResponse.success) {
+            throw new Error(
+              rentalResponse.message || "Failed to create rental"
+            );
+          }
+        }
+
+        // Clear the cart after successful rental creation
+        try {
+          await fetch("http://localhost:8000/api/cart/clear", {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${storedToken}`,
+            },
+          });
+        } catch (clearError) {
+          console.error("Failed to clear cart:", clearError);
+          // Don't fail the whole process if cart clearing fails
+        }
+
+        if (mountedRef.current) {
+          setStatus("success");
+          setMessage("Payment successful! Your cart items have been rented.");
+          sessionStorage.removeItem("pendingCartRental");
+          setTimeout(() => navigate("/dashboard/myorder"), 3000);
+        }
+      } catch (error) {
+        if (mountedRef.current) {
+          setStatus("error");
+          setMessage(
+            `Payment completed but could not process cart rentals automatically. Please contact support with payment reference: ${pidx}`
           );
         }
       }
@@ -318,7 +422,7 @@ export default function PaymentCallback() {
               setStatus("success");
               setMessage("Payment successful! Your rental has been confirmed.");
               sessionStorage.removeItem("pendingRental");
-              setTimeout(() => navigate("/rentals"), 3000);
+              setTimeout(() => navigate("/dashboard/myorder"), 3000);
             }
             return;
           }
@@ -341,6 +445,77 @@ export default function PaymentCallback() {
           sessionStorage.getItem("pendingRental") || "{}"
         );
 
+        const cartData = JSON.parse(
+          sessionStorage.getItem("pendingCartRental") || "{}"
+        );
+
+        // Handle cart checkout
+        if (cartData?.items?.length > 0) {
+          if (mountedRef.current) {
+            setMessage("Creating rentals for your cart items...");
+          }
+
+          for (const item of cartData.items) {
+            const res = await fetch(
+              "http://localhost:8000/api/rentals/create",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${currentUser.token}`,
+                },
+                body: JSON.stringify({
+                  productId: item.productId,
+                  startDate: item.startDate,
+                  endDate: item.endDate,
+                  rentalDays: item.rentalDays,
+                  totalAmount: item.total,
+                  paymentId: pidx,
+                  transactionId: transactionId,
+                  paymentMethod: "khalti",
+                  paymentStatus: "completed",
+                }),
+              }
+            );
+
+            if (!res.ok) {
+              const errText = await res.text();
+              throw new Error(`Rental creation failed: ${errText}`);
+            }
+
+            const rentalResponse = await res.json();
+            if (!rentalResponse.success) {
+              throw new Error(
+                rentalResponse.message || "Failed to create rental"
+              );
+            }
+          }
+
+          // Clear session storage and cart
+          sessionStorage.removeItem("pendingCartRental");
+
+          // Clear the cart
+          try {
+            await fetch("http://localhost:8000/api/cart/clear", {
+              method: "DELETE",
+              headers: {
+                Authorization: `Bearer ${currentUser.token}`,
+              },
+            });
+          } catch (clearError) {
+            console.error("Failed to clear cart:", clearError);
+            // Don't fail the whole process if cart clearing fails
+          }
+
+          if (mountedRef.current) {
+            setStatus("success");
+            setMessage("Payment successful! Your cart items have been rented.");
+            setTimeout(() => navigate("/dashboard/myorder"), 3000);
+          }
+          return;
+        }
+
+        // Handle single item rental
         if (!rentalData.productId) {
           throw new Error(
             "Rental information not found. Please contact support with payment reference: " +
@@ -360,6 +535,7 @@ export default function PaymentCallback() {
           paymentStatus: "completed",
         };
 
+        // Check if rental already exists
         const checkResponse = await fetch(
           `http://localhost:8000/api/rentals/by-payment/${pidx}`,
           {
@@ -373,6 +549,12 @@ export default function PaymentCallback() {
         if (checkResponse.ok) {
           const checkData = await checkResponse.json();
           if (checkData.exists) {
+            if (mountedRef.current) {
+              setStatus("success");
+              setMessage("Payment successful! Your rental has been confirmed.");
+              sessionStorage.removeItem("pendingRental");
+              setTimeout(() => navigate("/dashboard/myorder"), 3000);
+            }
             return;
           }
         }
@@ -403,15 +585,19 @@ export default function PaymentCallback() {
             setStatus("success");
             setMessage("Payment successful! Your rental has been confirmed.");
             sessionStorage.removeItem("pendingRental");
-            setTimeout(() => navigate("/rentals"), 3000);
+            setTimeout(() => navigate("/dashboard/myorder"), 3000);
           }
         } else {
           throw new Error(rentalResponse.message || "Failed to create rental");
         }
       } catch (error) {
-        // Fall back to normal verification process
+        console.error("Rental creation error:", error);
         if (mountedRef.current) {
-          setMessage("Verifying payment with backend...");
+          setStatus("error");
+          setMessage(
+            "Payment completed but could not create rental automatically. Please contact support with payment reference: " +
+              pidx
+          );
         }
       }
     };
@@ -427,6 +613,74 @@ export default function PaymentCallback() {
           sessionStorage.getItem("pendingRental") || "{}"
         );
 
+        const cartData = JSON.parse(
+          sessionStorage.getItem("pendingCartRental") || "{}"
+        );
+
+        // Handle cart checkout in fallback
+        if (cartData?.items?.length > 0) {
+          for (const item of cartData.items) {
+            const rentalRequestData = {
+              productId: item.productId,
+              startDate: item.startDate,
+              endDate: item.endDate,
+              rentalDays: item.rentalDays,
+              totalAmount: item.total,
+              paymentId: pidx,
+              transactionId: transactionId || verifyData.transaction_id || pidx,
+              paymentMethod: "khalti",
+              paymentStatus: "completed",
+            };
+
+            const createResponse = await fetch(
+              "http://localhost:8000/api/rentals/create",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${currentUser.token}`,
+                },
+                body: JSON.stringify(rentalRequestData),
+              }
+            );
+
+            if (!createResponse.ok) {
+              const errorText = await createResponse.text();
+              throw new Error(`Rental creation failed: ${errorText}`);
+            }
+
+            const rentalResponse = await createResponse.json();
+            if (!rentalResponse.success) {
+              throw new Error(
+                rentalResponse.message || "Failed to create rental"
+              );
+            }
+          }
+
+          // Clear session storage and cart
+          sessionStorage.removeItem("pendingCartRental");
+
+          // Clear the cart
+          try {
+            await fetch("http://localhost:8000/api/cart/clear", {
+              method: "DELETE",
+              headers: {
+                Authorization: `Bearer ${currentUser.token}`,
+              },
+            });
+          } catch (clearError) {
+            console.error("Failed to clear cart:", clearError);
+          }
+
+          if (mountedRef.current) {
+            setStatus("success");
+            setMessage("Payment successful! Your cart items have been rented.");
+            setTimeout(() => navigate("/dashboard/myorder"), 3000);
+          }
+          return;
+        }
+
+        // Handle single item rental
         if (!rentalData.productId) {
           throw new Error(
             "Rental information not found. Please contact support with payment reference: " +
@@ -448,6 +702,7 @@ export default function PaymentCallback() {
           paymentStatus: "completed",
         };
 
+        // Check if rental already exists
         const checkResponse = await fetch(
           `http://localhost:8000/api/rentals/by-payment/${pidx}`,
           {
@@ -461,6 +716,12 @@ export default function PaymentCallback() {
         if (checkResponse.ok) {
           const checkData = await checkResponse.json();
           if (checkData.exists) {
+            if (mountedRef.current) {
+              setStatus("success");
+              setMessage("Payment successful! Your rental has been confirmed.");
+              sessionStorage.removeItem("pendingRental");
+              setTimeout(() => navigate("/dashboard/myorder"), 3000);
+            }
             return;
           }
         }
@@ -491,7 +752,7 @@ export default function PaymentCallback() {
             setStatus("success");
             setMessage("Payment successful! Your rental has been confirmed.");
             sessionStorage.removeItem("pendingRental");
-            setTimeout(() => navigate("/rentals"), 3000);
+            setTimeout(() => navigate("/dashboard/myorder"), 3000);
           }
         } else {
           throw new Error(rentalResponse.message || "Failed to create rental");
@@ -613,7 +874,7 @@ export default function PaymentCallback() {
         {getStatusIcon()}
 
         <h2 className={`text-2xl font-bold ${getStatusColor()} mb-4`}>
-          {status === "success" && "Rental Confirmed!"}
+          {status === "success" && "Order Confirmed!"}
           {status === "error" && "Payment Issue"}
           {status === "canceled" && "Payment Canceled"}
           {status === "processing" && "Processing Payment..."}
@@ -624,7 +885,7 @@ export default function PaymentCallback() {
         <div className="space-y-3">
           {status === "success" && (
             <div className="text-sm text-gray-600">
-              Redirecting to your rentals in a few seconds...
+              Redirecting to your orders in a few seconds...
             </div>
           )}
 
@@ -635,6 +896,12 @@ export default function PaymentCallback() {
                 className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
               >
                 Browse Products
+              </button>
+              <button
+                onClick={() => navigate("/cart")}
+                className="w-full bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+              >
+                Back to Cart
               </button>
               <button
                 onClick={() => navigate("/")}
