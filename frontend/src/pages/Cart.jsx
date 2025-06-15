@@ -39,6 +39,14 @@ export default function Cart() {
     const updatedItems = [...cart.items];
     updatedItems[index][field] = value;
 
+    if (field === "startDate" || field === "endDate") {
+      const start = new Date(updatedItems[index].startDate);
+      const end = new Date(updatedItems[index].endDate);
+      const diffInMs = end - start;
+      const days = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
+      updatedItems[index].rentalDays = days > 0 ? days : 1;
+    }
+
     if (field === "rentalDays") {
       const start = new Date(updatedItems[index].startDate);
       const end = new Date(start);
@@ -162,11 +170,11 @@ export default function Cart() {
                     <div className="flex-shrink-0 mb-4 sm:mb-0">
                       <img
                         src={
-                          item.product.image ||
+                          item.product.imageUrl ||
                           "https://via.placeholder.com/150"
                         }
                         alt={item.product.title}
-                        className="h-32 w-32 rounded-md object-cover"
+                        className="h-32 w-32 object-cover rounded"
                       />
                     </div>
 
