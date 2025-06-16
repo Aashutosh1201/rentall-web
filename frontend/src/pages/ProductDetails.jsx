@@ -162,14 +162,11 @@ export default function ProductDetails() {
             {/* Image Section */}
             <div className="relative h-[500px] md:h-full">
               <img
-                src={
-                  product.imageUrl
-                    ? `http://localhost:8000${product.imageUrl}`
-                    : "/no-image.jpg"
-                }
+                src={product.imageUrl || "/no-image.jpg"} // ✅ Cloudinary URL or fallback
                 alt={product.title}
                 className="w-full h-full object-cover"
               />
+
               <div className="absolute top-4 right-4 bg-white px-4 py-2 rounded-full shadow-md">
                 <span className="text-green-600 font-bold text-xl">
                   Rs. {product.pricePerDay}
