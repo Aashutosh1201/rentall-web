@@ -141,19 +141,21 @@ export default function PaymentCallback() {
                 sessionStorage.removeItem("pendingCartRental");
                 setTimeout(() => navigate("/dashboard/orders"), 3000);
               }
-              return;
-            }
+            } else {
+              // ✅ Instead of showing new message immediately,
+              // set a neutral loading state to avoid flicker
+              if (mountedRef.current) {
+                setStatus("processing");
+                setMessage("Finalizing your order...");
+              }
 
-            // Backend did NOT create rental → fallback
-            if (mountedRef.current) {
-              setMessage("Payment verified. Creating your rental...");
+              await createRentalFallback(
+                verifyData,
+                pidx,
+                transactionId,
+                currentUser
+              );
             }
-            await createRentalFallback(
-              verifyData,
-              pidx,
-              transactionId,
-              currentUser
-            );
           } else {
             // Payment not completed
             if (mountedRef.current) {
@@ -465,11 +467,13 @@ export default function PaymentCallback() {
           sessionStorage.getItem("pendingCartRental") || "{}"
         );
 
-        // Handle cart checkout
+        // ✅ Handle cart checkout
         if (cartData?.items?.length > 0) {
           if (mountedRef.current) {
             setMessage("Creating rentals for your cart items...");
           }
+
+          let rentalSuccessCount = 0;
 
           for (const item of cartData.items) {
             const res = await fetch(
@@ -487,7 +491,7 @@ export default function PaymentCallback() {
                   rentalDays: item.rentalDays,
                   totalAmount: item.total,
                   paymentId: pidx,
-                  transactionId: transactionId,
+                  transactionId,
                   paymentMethod: "khalti",
                   paymentStatus: "completed",
                 }),
@@ -495,43 +499,56 @@ export default function PaymentCallback() {
             );
 
             if (!res.ok) {
+              if (res.status === 409) {
+                const conflictData = await res.json();
+                console.warn(
+                  "Rental already exists for cart item:",
+                  conflictData.rental?._id
+                );
+                rentalSuccessCount++; // Count this as success to avoid false error
+                continue;
+              }
+
               const errText = await res.text();
-              throw new Error(`Rental creation failed: ${errText}`);
+              console.warn(
+                `Rental creation failed for product ${item.productId}:`,
+                errText
+              );
+              continue;
             }
 
             const rentalResponse = await res.json();
-            if (!rentalResponse.success) {
-              throw new Error(
-                rentalResponse.message || "Failed to create rental"
-              );
+            if (rentalResponse.success) {
+              rentalSuccessCount++;
             }
           }
 
-          // Clear session storage and cart
-          sessionStorage.removeItem("pendingCartRental");
+          // ✅ If at least one rental was created or already existed
+          if (rentalSuccessCount > 0 && mountedRef.current) {
+            sessionStorage.removeItem("pendingCartRental");
 
-          // Clear the cart
-          try {
-            await fetch("http://localhost:8000/api/cart/clear", {
-              method: "DELETE",
-              headers: {
-                Authorization: `Bearer ${currentUser.token}`,
-              },
-            });
-          } catch (clearError) {
-            console.error("Failed to clear cart:", clearError);
-            // Don't fail the whole process if cart clearing fails
-          }
+            try {
+              await fetch("http://localhost:8000/api/cart/clear", {
+                method: "DELETE",
+                headers: {
+                  Authorization: `Bearer ${currentUser.token}`,
+                },
+              });
+            } catch (clearError) {
+              console.warn("Cart clear failed:", clearError);
+            }
 
-          if (mountedRef.current) {
             setStatus("success");
             setMessage("Payment successful! Your cart items have been rented.");
             setTimeout(() => navigate("/dashboard/orders"), 3000);
+          } else {
+            throw new Error("None of the cart rentals could be completed.");
           }
+
           return;
         }
 
-        // Handle single item rental
+        // ✅ Handle single item rental
         if (!rentalData.productId) {
           throw new Error(
             "Rental information not found. Please contact support with payment reference: " +
@@ -575,6 +592,7 @@ export default function PaymentCallback() {
           }
         }
 
+        // Create single rental
         const createResponse = await fetch(
           "http://localhost:8000/api/rentals/create",
           {
@@ -648,8 +666,10 @@ export default function PaymentCallback() {
           sessionStorage.getItem("pendingCartRental") || "{}"
         );
 
-        // Handle cart checkout in fallback
+        // ✅ Handle cart fallback
         if (cartData?.items?.length > 0) {
+          let rentalSuccessCount = 0;
+
           for (const item of cartData.items) {
             const rentalRequestData = {
               productId: item.productId,
@@ -676,42 +696,56 @@ export default function PaymentCallback() {
             );
 
             if (!createResponse.ok) {
-              const errorText = await createResponse.text();
-              throw new Error(`Rental creation failed: ${errorText}`);
+              if (createResponse.status === 409) {
+                const conflictData = await createResponse.json();
+                console.warn(
+                  "Cart fallback: Rental already exists",
+                  conflictData.rental?._id
+                );
+                rentalSuccessCount++; // ✅ treat as success
+                continue;
+              }
+
+              const errText = await createResponse.text();
+              console.warn(
+                `Rental fallback failed for product ${item.productId}:`,
+                errText
+              );
+              continue;
             }
 
             const rentalResponse = await createResponse.json();
-            if (!rentalResponse.success) {
-              throw new Error(
-                rentalResponse.message || "Failed to create rental"
-              );
+            if (rentalResponse.success) {
+              rentalSuccessCount++;
             }
           }
 
-          // Clear session storage and cart
-          sessionStorage.removeItem("pendingCartRental");
+          // ✅ If at least one succeeded (or already existed), treat as success
+          if (rentalSuccessCount > 0 && mountedRef.current) {
+            sessionStorage.removeItem("pendingCartRental");
 
-          // Clear the cart
-          try {
-            await fetch("http://localhost:8000/api/cart/clear", {
-              method: "DELETE",
-              headers: {
-                Authorization: `Bearer ${currentUser.token}`,
-              },
-            });
-          } catch (clearError) {
-            console.error("Failed to clear cart:", clearError);
-          }
+            try {
+              await fetch("http://localhost:8000/api/cart/clear", {
+                method: "DELETE",
+                headers: {
+                  Authorization: `Bearer ${currentUser.token}`,
+                },
+              });
+            } catch (clearError) {
+              console.warn("Cart clear failed:", clearError);
+            }
 
-          if (mountedRef.current) {
             setStatus("success");
             setMessage("Payment successful! Your cart items have been rented.");
             setTimeout(() => navigate("/dashboard/orders"), 3000);
+            return;
           }
-          return;
+
+          // ❌ If all cart items failed
+          throw new Error("None of the cart rentals could be completed.");
         }
 
-        // Handle single item rental
+        // ✅ Handle single item fallback
         if (!rentalData.productId) {
           throw new Error(
             "Rental information not found. Please contact support with payment reference: " +
@@ -733,7 +767,7 @@ export default function PaymentCallback() {
           paymentStatus: "completed",
         };
 
-        // Check if rental already exists
+        // Check if already exists
         const checkResponse = await fetch(
           `http://localhost:8000/api/rentals/by-payment/${pidx}`,
           {
@@ -757,6 +791,7 @@ export default function PaymentCallback() {
           }
         }
 
+        // Try creating rental
         const createResponse = await fetch(
           "http://localhost:8000/api/rentals/create",
           {
@@ -770,6 +805,21 @@ export default function PaymentCallback() {
         );
 
         if (!createResponse.ok) {
+          if (createResponse.status === 409) {
+            const errorData = await createResponse.json();
+            if (errorData.rental) {
+              if (mountedRef.current) {
+                setStatus("success");
+                setMessage(
+                  "Payment successful! Your rental was already created."
+                );
+                sessionStorage.removeItem("pendingRental");
+                setTimeout(() => navigate("/dashboard/orders"), 3000);
+              }
+              return;
+            }
+          }
+
           const errorText = await createResponse.text();
           throw new Error(
             `Rental creation failed (${createResponse.status}): ${errorText}`
@@ -789,7 +839,7 @@ export default function PaymentCallback() {
           throw new Error(rentalResponse.message || "Failed to create rental");
         }
       } catch (error) {
-        console.error("Rental creation error:", error);
+        console.error("Rental creation error (fallback):", error);
         if (mountedRef.current) {
           setStatus("error");
           setMessage(
