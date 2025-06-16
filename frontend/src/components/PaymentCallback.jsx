@@ -139,7 +139,7 @@ export default function PaymentCallback() {
                 );
                 sessionStorage.removeItem("pendingRental");
                 sessionStorage.removeItem("pendingCartRental");
-                setTimeout(() => navigate("/dashboard/myorder"), 3000);
+                setTimeout(() => navigate("/dashboard/orders"), 3000);
               }
               return;
             }
@@ -258,18 +258,34 @@ export default function PaymentCallback() {
           "http://localhost:8000/api/rentals/create",
           {
             method: "POST",
-            headers,
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${storedToken}`,
+            },
             body: JSON.stringify(rentalRequestData),
           }
         );
 
         if (!createResponse.ok) {
-          // Try calling a special endpoint for completed payments
-          return await tryPaymentCompletionEndpoint(
-            pidx,
-            transactionId,
-            amount,
-            rentalData
+          if (createResponse.status === 409) {
+            // Duplicate rental – treat as success
+            const errorData = await createResponse.json();
+            if (errorData.rental) {
+              if (mountedRef.current) {
+                setStatus("success");
+                setMessage(
+                  "Payment successful! Your rental was already created."
+                );
+                sessionStorage.removeItem("pendingRental");
+                setTimeout(() => navigate("/dashboard/orders"), 3000);
+              }
+              return;
+            }
+          }
+
+          const errorText = await createResponse.text();
+          throw new Error(
+            `Rental creation failed (${createResponse.status}): ${errorText}`
           );
         }
 
@@ -280,7 +296,7 @@ export default function PaymentCallback() {
             setStatus("success");
             setMessage("Payment successful! Your rental has been confirmed.");
             sessionStorage.removeItem("pendingRental");
-            setTimeout(() => navigate("/dashboard/myorder"), 3000);
+            setTimeout(() => navigate("/dashboard/orders"), 3000);
           }
         } else {
           throw new Error(rentalResponse.message || "Failed to create rental");
@@ -375,7 +391,7 @@ export default function PaymentCallback() {
           setStatus("success");
           setMessage("Payment successful! Your cart items have been rented.");
           sessionStorage.removeItem("pendingCartRental");
-          setTimeout(() => navigate("/dashboard/myorder"), 3000);
+          setTimeout(() => navigate("/dashboard/orders"), 3000);
         }
       } catch (error) {
         if (mountedRef.current) {
@@ -422,7 +438,7 @@ export default function PaymentCallback() {
               setStatus("success");
               setMessage("Payment successful! Your rental has been confirmed.");
               sessionStorage.removeItem("pendingRental");
-              setTimeout(() => navigate("/dashboard/myorder"), 3000);
+              setTimeout(() => navigate("/dashboard/orders"), 3000);
             }
             return;
           }
@@ -510,7 +526,7 @@ export default function PaymentCallback() {
           if (mountedRef.current) {
             setStatus("success");
             setMessage("Payment successful! Your cart items have been rented.");
-            setTimeout(() => navigate("/dashboard/myorder"), 3000);
+            setTimeout(() => navigate("/dashboard/orders"), 3000);
           }
           return;
         }
@@ -553,7 +569,7 @@ export default function PaymentCallback() {
               setStatus("success");
               setMessage("Payment successful! Your rental has been confirmed.");
               sessionStorage.removeItem("pendingRental");
-              setTimeout(() => navigate("/dashboard/myorder"), 3000);
+              setTimeout(() => navigate("/dashboard/orders"), 3000);
             }
             return;
           }
@@ -572,6 +588,21 @@ export default function PaymentCallback() {
         );
 
         if (!createResponse.ok) {
+          if (createResponse.status === 409) {
+            const errorData = await createResponse.json();
+            if (errorData.rental) {
+              if (mountedRef.current) {
+                setStatus("success");
+                setMessage(
+                  "Payment successful! Your rental was already created."
+                );
+                sessionStorage.removeItem("pendingRental");
+                setTimeout(() => navigate("/dashboard/orders"), 3000);
+              }
+              return;
+            }
+          }
+
           const errorText = await createResponse.text();
           throw new Error(
             `Rental creation failed (${createResponse.status}): ${errorText}`
@@ -585,7 +616,7 @@ export default function PaymentCallback() {
             setStatus("success");
             setMessage("Payment successful! Your rental has been confirmed.");
             sessionStorage.removeItem("pendingRental");
-            setTimeout(() => navigate("/dashboard/myorder"), 3000);
+            setTimeout(() => navigate("/dashboard/orders"), 3000);
           }
         } else {
           throw new Error(rentalResponse.message || "Failed to create rental");
@@ -675,7 +706,7 @@ export default function PaymentCallback() {
           if (mountedRef.current) {
             setStatus("success");
             setMessage("Payment successful! Your cart items have been rented.");
-            setTimeout(() => navigate("/dashboard/myorder"), 3000);
+            setTimeout(() => navigate("/dashboard/orders"), 3000);
           }
           return;
         }
@@ -720,7 +751,7 @@ export default function PaymentCallback() {
               setStatus("success");
               setMessage("Payment successful! Your rental has been confirmed.");
               sessionStorage.removeItem("pendingRental");
-              setTimeout(() => navigate("/dashboard/myorder"), 3000);
+              setTimeout(() => navigate("/dashboard/orders"), 3000);
             }
             return;
           }
@@ -752,7 +783,7 @@ export default function PaymentCallback() {
             setStatus("success");
             setMessage("Payment successful! Your rental has been confirmed.");
             sessionStorage.removeItem("pendingRental");
-            setTimeout(() => navigate("/dashboard/myorder"), 3000);
+            setTimeout(() => navigate("/dashboard/orders"), 3000);
           }
         } else {
           throw new Error(rentalResponse.message || "Failed to create rental");
