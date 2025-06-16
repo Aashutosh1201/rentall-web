@@ -6,6 +6,7 @@ import {
   FaStar,
   FaRegStar,
   FaStarHalfAlt,
+  FaTrash,
 } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
@@ -19,6 +20,7 @@ export default function ProductDetails() {
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState("");
+  const [deletingReview, setDeletingReview] = useState(null);
   const userToken = localStorage.getItem("token");
 
   useEffect(() => {
@@ -62,6 +64,34 @@ export default function ProductDetails() {
       setProduct(updated.data);
     } catch (error) {
       console.error("Error submitting review:", error.response?.data || error);
+      alert(error.response?.data?.error || "Failed to submit review");
+    }
+  };
+
+  const deleteReview = async (reviewId) => {
+    if (!window.confirm("Are you sure you want to delete this review?")) {
+      return;
+    }
+
+    setDeletingReview(reviewId);
+    try {
+      const response = await axios.delete(
+        `http://localhost:8000/api/products/${product._id}/reviews/${reviewId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
+
+      // Update the product state with the returned updated product
+      setProduct(response.data.product);
+      alert("Review deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting review:", error.response?.data || error);
+      alert(error.response?.data?.error || "Failed to delete review");
+    } finally {
+      setDeletingReview(null);
     }
   };
 
@@ -134,6 +164,13 @@ export default function ProductDetails() {
 
     return stars;
   };
+
+  // Check if user has already reviewed this product
+  const userReview =
+    user &&
+    product?.reviews?.find(
+      (review) => review.user?._id === user.id || review.user?.id === user.id
+    );
 
   if (loading || authLoading)
     return (
@@ -243,19 +280,40 @@ export default function ProductDetails() {
                       {product.reviews.map((review) => (
                         <div
                           key={review._id}
-                          className="bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-100"
+                          className="bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-100 relative"
                         >
                           <div className="flex justify-between items-start">
-                            <p className="font-semibold text-gray-800">
-                              {review.user?.fullName || "Anonymous"}
-                            </p>
-                            <div className="flex items-center space-x-1">
-                              {renderStaticStars(review.rating)}
-                              <span className="text-gray-500 ml-1">
-                                ({review.rating.toFixed(1)})
-                              </span>
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-800">
+                                {review.user?.fullName || "Anonymous"}
+                              </p>
+                              <div className="flex items-center space-x-1 mt-1">
+                                {renderStaticStars(review.rating)}
+                                <span className="text-gray-500 ml-1">
+                                  ({review.rating.toFixed(1)})
+                                </span>
+                              </div>
                             </div>
+
+                            {/* Delete button - only show for review owner */}
+                            {user &&
+                              (review.user?._id === user.id ||
+                                review.user?.id === user.id) && (
+                                <button
+                                  onClick={() => deleteReview(review._id)}
+                                  disabled={deletingReview === review._id}
+                                  className="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
+                                  title="Delete review"
+                                >
+                                  {deletingReview === review._id ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-red-500"></div>
+                                  ) : (
+                                    <FaTrash className="w-4 h-4" />
+                                  )}
+                                </button>
+                              )}
                           </div>
+
                           <p className="text-gray-600 mt-2">{review.comment}</p>
                           <p className="text-gray-400 text-sm mt-3">
                             {new Date(review.createdAt).toLocaleDateString()}
@@ -268,8 +326,8 @@ export default function ProductDetails() {
                   )}
                 </div>
 
-                {/* Review Form */}
-                {user && (
+                {/* Review Form - only show if user hasn't reviewed yet */}
+                {user && !userReview && (
                   <div className="mt-8 bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-100">
                     <h3 className="text-xl font-semibold text-gray-800 mb-4">
                       Leave a Review
@@ -310,6 +368,16 @@ export default function ProductDetails() {
                         Submit Review
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {/* Message for users who already reviewed */}
+                {user && userReview && (
+                  <div className="mt-8 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <p className="text-blue-800 font-medium">
+                      You have already reviewed this product. You can delete
+                      your review and add a new one if needed.
+                    </p>
                   </div>
                 )}
               </div>

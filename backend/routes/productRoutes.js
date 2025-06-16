@@ -4,6 +4,7 @@ const {
   getAllProducts,
   getOneProduct,
   addProductReview,
+  deleteProductReview,
 } = require("../controllers/productController");
 const { verifyToken } = require("../middleware/authMiddleware");
 const upload = require("../middleware/upload"); // ✅ use the shared multer config
@@ -21,5 +22,6 @@ router.post(
 // GET route to fetch all products
 router.get("/", getAllProducts);
 router.get("/:id", getOneProduct);
+router.delete("/:id/reviews/:reviewId", verifyToken, deleteProductReview);
 router.post("/:id/reviews", verifyToken, addProductReview);
 module.exports = router;
