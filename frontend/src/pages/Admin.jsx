@@ -12,7 +12,7 @@ const Admin = () => {
   // Delete product
   const deleteProduct = async (id) => {
     try {
-      await axiosInstance.delete(`/products/${id}`);
+      await axiosInstance.delete(`/admin/products/${id}`); // Changed from "/products/${id}"
       setProducts((prev) => prev.filter((product) => product._id !== id));
     } catch (err) {
       setError("Failed to delete product.");
@@ -22,14 +22,15 @@ const Admin = () => {
 
   const updateKYCStatus = async (id, status) => {
     try {
-      const { data } = await axiosInstance.patch(`/kyc/${id}`, { status }); // PATCH request
-      setKycSubmissions(
-        (prev) =>
-          prev
-            .map((kyc) =>
-              kyc._id === id ? { ...kyc, status: data.status } : kyc
-            )
-            .sort((a, b) => (a.status === "pending" ? -1 : 1)) // Keep pending first
+      const { data } = await axiosInstance.patch(`/admin/kyc/${id}`, {
+        status,
+      }); // Changed from "/kyc/${id}"
+      setKycSubmissions((prev) =>
+        prev
+          .map((kyc) =>
+            kyc._id === id ? { ...kyc, status: data.status } : kyc
+          )
+          .sort((a, b) => (a.status === "pending" ? -1 : 1))
       );
     } catch (err) {
       setError("Failed to update KYC status.");
@@ -44,9 +45,9 @@ const Admin = () => {
       setError("");
       try {
         const [productRes, kycRes, usersRes] = await Promise.all([
-          axiosInstance.get("/products"),
-          axiosInstance.get("/kyc"),
-          axiosInstance.get("/users"),
+          axiosInstance.get("/admin/products"), // Changed from "/products"
+          axiosInstance.get("/admin/kyc"), // Changed from "/kyc"
+          axiosInstance.get("/users"), // This one stays the same
         ]);
         setProducts(productRes.data);
         setKycSubmissions(kycRes.data);

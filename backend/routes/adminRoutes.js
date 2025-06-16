@@ -17,7 +17,7 @@ router.delete("/products/:id", deleteProduct);
 // Route to get all KYC submissions
 router.get("/kyc", getKYCSubmissions);
 
-// Route to update KYC status
-router.put("/kyc/:id", updateKYCStatus);
+// Route to update KYC status - Changed from PUT to PATCH to match frontend
+router.patch("/kyc/:id", updateKYCStatus);
 
 module.exports = router;

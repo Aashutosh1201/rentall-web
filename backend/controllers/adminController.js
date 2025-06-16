@@ -14,7 +14,6 @@ const getAllProducts = async (req, res) => {
   }
 };
 
-
 // Delete a product by ID
 const deleteProduct = async (req, res) => {
   const { id } = req.params;
@@ -53,7 +52,11 @@ const updateKYCStatus = async (req, res) => {
     kyc.status = status;
     await kyc.save();
 
-    res.status(200).json({ message: "KYC status updated successfully", kyc });
+    // Return the status in the response to match what the frontend expects
+    res.status(200).json({
+      message: "KYC status updated successfully",
+      status: kyc.status, // Frontend expects data.status
+    });
   } catch (error) {
     res.status(500).json({ message: "Failed to update KYC status", error });
   }
