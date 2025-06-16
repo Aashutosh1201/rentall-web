@@ -286,7 +286,7 @@ export default function Cart() {
             </svg>
             <p className="mt-4 text-lg text-gray-600">Your cart is empty</p>
             <button
-              onClick={() => navigate("/products")}
+              onClick={() => navigate("/categories")}
               className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
             >
               Browse Products
@@ -443,7 +443,7 @@ export default function Cart() {
 
               <div className="mt-6 flex flex-col sm:flex-row justify-between gap-4">
                 <button
-                  onClick={() => navigate("/products")}
+                  onClick={() => navigate("/categories")}
                   className="px-6 py-3 border border-gray-300 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200"
                   disabled={isLoading}
                 >

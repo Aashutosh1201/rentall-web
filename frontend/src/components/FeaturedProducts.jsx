@@ -10,20 +10,17 @@ const products = [
   },
   {
     name: "DSLR Camera",
-    image:
-      "https://www.adorama.com/images/cms/4228ica5dm4k1_3%5B1%5D.jpg",
+    image: "https://www.adorama.com/images/cms/4228ica5dm4k1_3%5B1%5D.jpg",
     price: "Rs. 1,200/day",
   },
   {
     name: "Projector",
-    image:
-      "https://m.media-amazon.com/images/I/61pKMIi0AfL._AC_SL1500_.jpg",
+    image: "https://m.media-amazon.com/images/I/61pKMIi0AfL._AC_SL1500_.jpg",
     price: "Rs. 900/day",
   },
   {
     name: "Camping Tent",
-    image:
-      "https://m.media-amazon.com/images/I/81DaQhY+yRL._AC_SL1500_.jpg",
+    image: "https://m.media-amazon.com/images/I/81DaQhY+yRL._AC_SL1500_.jpg",
     price: "Rs. 500/day",
   },
 ];
@@ -60,7 +57,7 @@ const FeaturedProducts = () => {
         {/* 👇 View All Products Button */}
         <div className="text-center">
           <Link
-            to="/products"
+            to="/categories"
             className="inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition"
           >
             View All Products

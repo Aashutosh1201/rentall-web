@@ -8,7 +8,6 @@ import AdminRoute from "./components/AdminRoute"; // Import the new AdminRoute c
 import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingSpinner from "./components/LoadingSpinner";
 import CreateProduct from "./pages/CreateProduct";
-import ProductList from "./pages/ProductList";
 import KYCInfo from "./pages/KYCInfo";
 import KYCForm from "./pages/KYCForm";
 import ProductDetails from "./pages/ProductDetails";
@@ -122,15 +121,6 @@ function App() {
               </PublicLayout>
             }
           />
-          <Route
-            path="/products"
-            element={
-              <PublicLayout>
-                <ProductList />
-              </PublicLayout>
-            }
-          />
-
           <Route
             path="/product/:id"
             element={

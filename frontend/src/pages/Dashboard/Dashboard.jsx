@@ -426,7 +426,7 @@ const DashboardHome = () => {
               <FiChevronRight className="text-gray-400" />
             </button>
             <button
-              onClick={() => navigate("/products")}
+              onClick={() => navigate("/categories")}
               className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200 group"
             >
               <div className="flex items-center">
