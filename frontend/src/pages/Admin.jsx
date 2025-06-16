@@ -23,20 +23,19 @@ const Admin = () => {
   const updateKYCStatus = async (id, status) => {
     try {
       const { data } = await axiosInstance.patch(`/kyc/${id}`, { status }); // PATCH request
-      setKycSubmissions((prev) =>
-        prev
-          .map((kyc) =>
-            kyc._id === id ? { ...kyc, status: data.status } : kyc
-          )
-          .sort((a, b) => (a.status === "pending" ? -1 : 1)) // Keep pending first
+      setKycSubmissions(
+        (prev) =>
+          prev
+            .map((kyc) =>
+              kyc._id === id ? { ...kyc, status: data.status } : kyc
+            )
+            .sort((a, b) => (a.status === "pending" ? -1 : 1)) // Keep pending first
       );
     } catch (err) {
       setError("Failed to update KYC status.");
       console.error(err);
     }
   };
-
-
 
   // Fetch data
   useEffect(() => {
@@ -109,7 +108,9 @@ const Admin = () => {
       {/* Tab Content */}
       {!loading && activeTab === "Products" && (
         <section>
-          <h2 className="text-2xl font-semibold mb-4 text-gray-700">Products</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-gray-700">
+            Products
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map((product) => (
               <div
@@ -209,7 +210,6 @@ const Admin = () => {
         </section>
       )}
 
-
       {!loading && activeTab === "Users" && (
         <section>
           <h2 className="text-2xl font-semibold mb-4 text-gray-700">Users</h2>
@@ -229,7 +229,8 @@ const Admin = () => {
                   <strong>Phone:</strong> {user.phone}
                 </p>
                 <p className="text-gray-600 mt-1">
-                  <strong>Status:</strong> {user.isActive ? "Active" : "Inactive"}
+                  <strong>Status:</strong>{" "}
+                  {user.isActive ? "Active" : "Inactive"}
                 </p>
                 <button
                   className="bg-red-500 text-white px-4 py-2 rounded-lg mt-4 hover:bg-red-600"
@@ -247,4 +248,3 @@ const Admin = () => {
 };
 
 export default Admin;
-
