@@ -81,12 +81,13 @@ export default function CategoryProducts() {
               <img
                 src={
                   product.imageUrl
-                    ? `http://localhost:8000${product.imageUrl}`
+                    ? product.imageUrl // ✅ Use Cloudinary URL directly
                     : "/no-image.jpg"
                 }
                 alt={product.title || "Unnamed product"}
                 className="w-full h-48 object-cover rounded mb-3"
               />
+
               <h2 className="text-lg font-semibold mb-1">
                 {product.title || "No name"}
               </h2>
