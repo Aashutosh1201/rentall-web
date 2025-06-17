@@ -18,13 +18,20 @@ export default function ProductDetails() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(5);
+  const [hasRented, setHasRented] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState("");
   const [deletingReview, setDeletingReview] = useState(null);
   const userToken = localStorage.getItem("token");
 
   useEffect(() => {
+    if (authLoading) return;
+
     const fetchProduct = async () => {
+      console.log("=== DEBUG AUTH ===");
+      console.log("userToken:", userToken);
+      console.log("user:", user);
+
       try {
         const res = await fetch(`http://localhost:8000/api/products/${id}`);
         const data = await res.json();
@@ -32,6 +39,27 @@ export default function ProductDetails() {
           setProduct(data);
         } else {
           console.error("Failed to load product:", data.message);
+        }
+
+        if (userToken && (user?.id || user?.userId)) {
+          const userIdToUse = user.id || user.userId;
+          console.log("Checking rental status for user:", userIdToUse);
+
+          try {
+            const rentRes = await axios.get(
+              `http://localhost:8000/api/rentals/hasRented/${id}`,
+              {
+                headers: { Authorization: `Bearer ${userToken}` },
+              }
+            );
+            console.log("Rental check response:", rentRes.data);
+            setHasRented(rentRes.data.hasRented);
+          } catch (err) {
+            console.error("Rental check failed:", err.response?.data || err);
+          }
+        } else {
+          console.log("No user token or user ID, skipping rental check");
+          setHasRented(false);
         }
       } catch (err) {
         console.error("Error fetching product:", err);
@@ -41,11 +69,18 @@ export default function ProductDetails() {
     };
 
     fetchProduct();
-  }, [id]);
+  }, [id, user, userToken, authLoading]);
 
   const submitReview = async () => {
+    if (!comment.trim()) {
+      alert("Please enter a comment");
+      return;
+    }
+
     try {
-      await axios.post(
+      console.log("Submitting review:", { rating, comment, userId: user.id });
+
+      const response = await axios.post(
         `http://localhost:8000/api/products/${product._id}/reviews`,
         { rating, comment },
         {
@@ -55,13 +90,16 @@ export default function ProductDetails() {
           },
         }
       );
+
+      console.log("Review submission response:", response.data);
+
       setRating(5);
       setComment("");
-      // Refresh reviews
-      const updated = await axios.get(
-        `http://localhost:8000/api/products/${product._id}`
-      );
-      setProduct(updated.data);
+
+      // Update product with the response data
+      setProduct(response.data.product);
+
+      alert("Review submitted successfully!");
     } catch (error) {
       console.error("Error submitting review:", error.response?.data || error);
       alert(error.response?.data?.error || "Failed to submit review");
@@ -169,7 +207,8 @@ export default function ProductDetails() {
   const userReview =
     user &&
     product?.reviews?.find(
-      (review) => review.user?._id === user.id || review.user?.id === user.id
+      (review) =>
+        String(review.user?._id || review.user?.id) === String(user.id)
     );
 
   if (loading || authLoading)
@@ -284,9 +323,25 @@ export default function ProductDetails() {
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
-                              <p className="font-semibold text-gray-800">
-                                {review.user?.fullName || "Anonymous"}
-                              </p>
+                              <div className="flex items-center space-x-3">
+                                {review.user?.profileImageUrl ? (
+                                  <img
+                                    src={review.user.profileImageUrl}
+                                    alt={review.user.fullName}
+                                    className="w-10 h-10 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center font-bold">
+                                    {review.user?.fullName
+                                      ?.charAt(0)
+                                      .toUpperCase() || "?"}
+                                  </div>
+                                )}
+                                <p className="font-semibold text-gray-800">
+                                  {review.user?.fullName || "Anonymous"}
+                                </p>
+                              </div>
+
                               <div className="flex items-center space-x-1 mt-1">
                                 {renderStaticStars(review.rating)}
                                 <span className="text-gray-500 ml-1">
@@ -327,8 +382,10 @@ export default function ProductDetails() {
                 </div>
 
                 {/* Review Form - only show if user hasn't reviewed yet */}
-                {user && !userReview && (
+                {/* ✅ User can leave a review only if rented and not already reviewed */}
+                {user && hasRented && !userReview && (
                   <div className="mt-8 bg-gray-50 p-6 rounded-lg shadow-sm border border-gray-100">
+                    {/* Review Form */}
                     <h3 className="text-xl font-semibold text-gray-800 mb-4">
                       Leave a Review
                     </h3>
@@ -371,12 +428,21 @@ export default function ProductDetails() {
                   </div>
                 )}
 
-                {/* Message for users who already reviewed */}
-                {user && userReview && (
+                {/* ✅ Show message if already reviewed */}
+                {user && hasRented && userReview && (
                   <div className="mt-8 bg-blue-50 p-4 rounded-lg border border-blue-200">
                     <p className="text-blue-800 font-medium">
                       You have already reviewed this product. You can delete
                       your review and add a new one if needed.
+                    </p>
+                  </div>
+                )}
+
+                {/* 🚫 Not rented */}
+                {user && !hasRented && (
+                  <div className="mt-8 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <p className="text-yellow-800 font-medium">
+                      You can only leave a review after renting this product.
                     </p>
                   </div>
                 )}

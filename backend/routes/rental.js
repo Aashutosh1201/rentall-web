@@ -6,6 +6,7 @@ const router = express.Router();
 const { verifyToken } = require("../middleware/authMiddleware");
 const Rental = require("../models/Rental");
 const Product = require("../models/Product");
+const mongoose = require("mongoose");
 
 // Function to generate unique purchase order ID
 function generatePurchaseOrderId() {
@@ -384,4 +385,59 @@ router.get("/by-payment/:paymentId", verifyToken, async (req, res) => {
   }
 });
 
+router.get("/hasRented/:productId", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const productId = req.params.productId;
+
+    console.log("=== RENTAL CHECK DEBUG ===");
+    console.log("userId from token:", userId);
+    console.log("productId:", productId);
+
+    if (!userId || !productId) {
+      return res.status(400).json({ error: "Missing user or product ID" });
+    }
+
+    // Validate ObjectIds
+    if (
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      !mongoose.Types.ObjectId.isValid(productId)
+    ) {
+      console.log("Invalid ObjectId format");
+      return res.status(400).json({ error: "Invalid ID format" });
+    }
+
+    // Simplified query - only check userId since that's what exists in your DB
+    const rental = await Rental.findOne({
+      userId: new mongoose.Types.ObjectId(userId),
+      productId: new mongoose.Types.ObjectId(productId),
+      status: { $in: ["active", "completed"] },
+    });
+
+    console.log("Rental found:", rental ? "YES" : "NO");
+    if (rental) {
+      console.log("Rental details:", {
+        id: rental._id,
+        userId: rental.userId,
+        productId: rental.productId,
+        status: rental.status,
+      });
+    }
+
+    const hasRented = !!rental;
+    console.log("Final result:", hasRented);
+
+    return res.json({
+      hasRented,
+      debug: {
+        searchUserId: userId,
+        searchProductId: productId,
+        found: !!rental,
+      },
+    });
+  } catch (err) {
+    console.error("Rental check error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 module.exports = router;

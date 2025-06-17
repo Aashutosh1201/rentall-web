@@ -1,6 +1,7 @@
 const Product = require("../models/Product");
 const cloudinary = require("../config/claudinary");
 const User = require("../models/User");
+const Rental = require("../models/Rental");
 
 const createProduct = async (req, res) => {
   try {
@@ -118,18 +119,25 @@ const addProductReview = async (req, res) => {
     const { rating, comment } = req.body;
     const product = await Product.findById(req.params.id);
 
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
+    if (!product) return res.status(404).json({ error: "Product not found" });
 
-    // ✅ Get user ID consistently
     const currentUserId = req.user.id || req.user.userId;
+    if (!currentUserId) return res.status(401).json({ error: "Unauthorized" });
 
-    if (!currentUserId) {
-      return res.status(401).json({ error: "User ID not found in token" });
+    // ✅ Check if user rented the product
+    const hasRented = await Rental.exists({
+      userId: currentUserId,
+      productId: product._id,
+      status: { $in: ["active", "completed"] },
+    });
+
+    if (!hasRented) {
+      return res
+        .status(403)
+        .json({ error: "You must rent the product before reviewing." });
     }
 
-    // Check if user already reviewed this product
+    // ✅ Check if already reviewed
     const alreadyReviewed = product.reviews.find(
       (r) => r.user?.toString() === currentUserId.toString()
     );
@@ -138,6 +146,7 @@ const addProductReview = async (req, res) => {
       return res.status(400).json({ error: "Already reviewed" });
     }
 
+    // ✅ Create review
     const review = {
       user: currentUserId,
       rating: Number(rating),
@@ -145,24 +154,16 @@ const addProductReview = async (req, res) => {
     };
 
     product.reviews.push(review);
-
-    // Calculate average rating
     product.averageRating =
       product.reviews.reduce((sum, r) => sum + r.rating, 0) /
       product.reviews.length;
-
     await product.save();
 
-    // ✅ Fetch updated product with populated reviewer info
     const updatedProduct = await Product.findById(product._id).populate(
       "reviews.user",
       "fullName email"
     );
-
-    res.status(201).json({
-      message: "Review added",
-      product: updatedProduct,
-    });
+    res.status(201).json({ message: "Review added", product: updatedProduct });
   } catch (error) {
     console.error("Add Review Error:", error);
     res.status(500).json({ message: "Server error", detail: error.message });
