@@ -18,6 +18,19 @@ import PaymentCallback from "./components/PaymentCallback";
 import RentalHistory from "./pages/RentalHistory";
 import VerificationPage from "./pages/VerificationPage";
 import EmailVerifyHandler from "./components/EmailVerifyHandler";
+<<<<<<< Updated upstream
+=======
+import RequestProduct from "./pages/RequestProduct";
+import RequestsPage from "./pages/RequestsPage"; 
+import RequestDetail from "./pages/RequestDetail";
+import Profile from "./pages/Profile";
+import {
+  DashboardHome,
+  MyOrders,
+  MyProducts,
+  DashboardLayout, // ✅ Renamed to avoid conflict
+} from "./pages/Dashboard/Dashboard";
+>>>>>>> Stashed changes
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
@@ -161,6 +174,39 @@ function App() {
               </PublicLayout>
             }
           />
+
+          <Route
+            path="/request-product"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <RequestProduct />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
+          <Route
+            path="/requests"
+            element={
+              <PublicLayout>
+                <RequestsPage />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/requests/:id"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <RequestDetail />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
+
+
+
 
           {/* Authentication routes */}
           <Route

@@ -9,7 +9,7 @@ const session = require("express-session");
 const path = require("path");
 const adminRoutes = require("./routes/adminRoutes");
 const app = express();
-
+const requestRoutes = require("./routes/requestRoutes");
 // Middleware
 app.use(
   cors({
@@ -69,7 +69,12 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/rentals", rentalRoutes);
 app.use("/api/verification", verificationRoutes); // Add this
 app.use("/api/users", userRoutes); // Add this
+<<<<<<< Updated upstream
 
+=======
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/requests", requestRoutes);
+>>>>>>> Stashed changes
 // Root route
 app.get("/", (req, res) => {
   res.send("🚀 RentALL API is working!");
