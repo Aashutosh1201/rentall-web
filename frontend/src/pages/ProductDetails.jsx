@@ -203,13 +203,68 @@ export default function ProductDetails() {
     return stars;
   };
 
+  // ✅ Helper function to check if current user owns the review
+  const isReviewOwner = (review) => {
+    if (!user) return false;
+
+    const currentUserId = user.id || user.userId;
+    if (!currentUserId) return false;
+
+    // Get review user ID - handle both populated and non-populated cases
+    let reviewUserId = null;
+    if (review.user) {
+      if (typeof review.user === "object" && review.user._id) {
+        // User is populated (object with _id)
+        reviewUserId = review.user._id;
+      } else if (typeof review.user === "string" || review.user.toString) {
+        // User is just an ObjectId string
+        reviewUserId = review.user.toString();
+      }
+    }
+
+    return reviewUserId && reviewUserId.toString() === currentUserId.toString();
+  };
+
+  // ✅ Helper function to render profile image (same logic as Navbar)
+  const renderProfileImage = (user, size = "w-10 h-10") => {
+    if (!user) {
+      return (
+        <div
+          className={`${size} rounded-full bg-gray-300 text-white flex items-center justify-center font-bold`}
+        >
+          ?
+        </div>
+      );
+    }
+
+    // Check if user has a selfie (profile image)
+    if (user.selfieUrl || user.profileImageUrl) {
+      return (
+        <img
+          src={user.selfieUrl || user.profileImageUrl}
+          alt={user.fullName || "User"}
+          className={`${size} rounded-full object-cover`}
+        />
+      );
+    }
+
+    // Fall back to first letter of name
+    const firstLetter =
+      user.fullName?.charAt(0).toUpperCase() ||
+      user.name?.charAt(0).toUpperCase() ||
+      "?";
+    return (
+      <div
+        className={`${size} rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm`}
+      >
+        {firstLetter}
+      </div>
+    );
+  };
+
   // Check if user has already reviewed this product
   const userReview =
-    user &&
-    product?.reviews?.find(
-      (review) =>
-        String(review.user?._id || review.user?.id) === String(user.id)
-    );
+    user && product?.reviews?.find((review) => isReviewOwner(review));
 
   if (loading || authLoading)
     return (
@@ -324,21 +379,12 @@ export default function ProductDetails() {
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
-                                {review.user?.profileImageUrl ? (
-                                  <img
-                                    src={review.user.profileImageUrl}
-                                    alt={review.user.fullName}
-                                    className="w-10 h-10 rounded-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center font-bold">
-                                    {review.user?.fullName
-                                      ?.charAt(0)
-                                      .toUpperCase() || "?"}
-                                  </div>
-                                )}
+                                {/* ✅ Updated profile image rendering */}
+                                {renderProfileImage(review.user)}
                                 <p className="font-semibold text-gray-800">
-                                  {review.user?.fullName || "Anonymous"}
+                                  {review.user?.fullName ||
+                                    review.user?.name ||
+                                    "Anonymous"}
                                 </p>
                               </div>
 
@@ -350,23 +396,21 @@ export default function ProductDetails() {
                               </div>
                             </div>
 
-                            {/* Delete button - only show for review owner */}
-                            {user &&
-                              (review.user?._id === user.id ||
-                                review.user?.id === user.id) && (
-                                <button
-                                  onClick={() => deleteReview(review._id)}
-                                  disabled={deletingReview === review._id}
-                                  className="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
-                                  title="Delete review"
-                                >
-                                  {deletingReview === review._id ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-red-500"></div>
-                                  ) : (
-                                    <FaTrash className="w-4 h-4" />
-                                  )}
-                                </button>
-                              )}
+                            {/* ✅ Delete button - only show for review owner */}
+                            {isReviewOwner(review) && (
+                              <button
+                                onClick={() => deleteReview(review._id)}
+                                disabled={deletingReview === review._id}
+                                className="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
+                                title="Delete review"
+                              >
+                                {deletingReview === review._id ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-red-500"></div>
+                                ) : (
+                                  <FaTrash className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
                           </div>
 
                           <p className="text-gray-600 mt-2">{review.comment}</p>
