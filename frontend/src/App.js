@@ -18,8 +18,6 @@ import PaymentCallback from "./components/PaymentCallback";
 import RentalHistory from "./pages/RentalHistory";
 import VerificationPage from "./pages/VerificationPage";
 import EmailVerifyHandler from "./components/EmailVerifyHandler";
-<<<<<<< Updated upstream
-=======
 import RequestProduct from "./pages/RequestProduct";
 import RequestsPage from "./pages/RequestsPage"; 
 import RequestDetail from "./pages/RequestDetail";
@@ -30,7 +28,6 @@ import {
   MyProducts,
   DashboardLayout, // ✅ Renamed to avoid conflict
 } from "./pages/Dashboard/Dashboard";
->>>>>>> Stashed changes
 
 // Lazy load components
 const Hero = lazy(() => import("./components/Hero"));
