@@ -17,6 +17,9 @@ import PaymentCallback from "./components/PaymentCallback";
 import RentalHistory from "./pages/RentalHistory";
 import VerificationPage from "./pages/VerificationPage";
 import EmailVerifyHandler from "./components/EmailVerifyHandler";
+import RequestProduct from "./pages/RequestProduct"; 
+import RequestsPage from "./pages/RequestsPage";
+import RequestDetail from "./pages/RequestDetail";
 import Profile from "./pages/Profile";
 import {
   DashboardHome,
@@ -167,6 +170,40 @@ function App() {
               </PublicLayout>
             }
           />
+
+          <Route
+            path="/request-product"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <RequestProduct />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/requests"
+            element={
+              <PublicLayout>
+                <RequestsPage />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/requests/:id"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <RequestDetail />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
+
+
+
 
           {/* Authentication routes */}
           <Route
