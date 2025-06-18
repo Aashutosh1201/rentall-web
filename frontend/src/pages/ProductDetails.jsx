@@ -22,7 +22,58 @@ export default function ProductDetails() {
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState("");
   const [deletingReview, setDeletingReview] = useState(null);
+  const [kycSelfie, setKycSelfie] = useState(null);
+  const [reviewUserKycData, setReviewUserKycData] = useState({});
   const userToken = localStorage.getItem("token");
+
+  // Fetch current user's KYC data (same as Navbar)
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const fetchKYCSelfie = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:8000/api/kyc/status/${user.email}`
+        );
+        const data = await res.json();
+        if (data.exists) {
+          const kycDetails = await fetch(
+            `http://localhost:8000/api/kyc/detail/${user.email}`
+          );
+          const detail = await kycDetails.json();
+          if (detail.kyc?.selfiePath) {
+            setKycSelfie(detail.kyc.selfiePath);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch KYC selfie:", err);
+      }
+    };
+
+    fetchKYCSelfie();
+  }, [user?.email]);
+
+  // Fetch KYC data for review users
+  const fetchReviewUserKyc = async (email) => {
+    if (!email || reviewUserKycData[email]) return reviewUserKycData[email];
+
+    try {
+      const res = await fetch(`http://localhost:8000/api/kyc/status/${email}`);
+      const data = await res.json();
+      if (data.exists) {
+        const kycDetails = await fetch(
+          `http://localhost:8000/api/kyc/detail/${email}`
+        );
+        const detail = await kycDetails.json();
+        const selfiePath = detail.kyc?.selfiePath || null;
+        setReviewUserKycData((prev) => ({ ...prev, [email]: selfiePath }));
+        return selfiePath;
+      }
+    } catch (err) {
+      console.error("Failed to fetch review user KYC:", err);
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -37,6 +88,15 @@ export default function ProductDetails() {
         const data = await res.json();
         if (res.ok) {
           setProduct(data);
+
+          // Fetch KYC data for all review users
+          if (data.reviews && data.reviews.length > 0) {
+            data.reviews.forEach((review) => {
+              if (review.user && review.user.email) {
+                fetchReviewUserKyc(review.user.email);
+              }
+            });
+          }
         } else {
           console.error("Failed to load product:", data.message);
         }
@@ -225,9 +285,43 @@ export default function ProductDetails() {
     return reviewUserId && reviewUserId.toString() === currentUserId.toString();
   };
 
-  // ✅ Helper function to render profile image (same logic as Navbar)
-  const renderProfileImage = (user, size = "w-10 h-10") => {
-    if (!user) {
+  // ✅ Function to get profile image source (same logic as Navbar)
+  const getProfileImageSrc = (reviewUser) => {
+    if (!reviewUser) return null;
+
+    // For current user, check KYC selfie first
+    if (reviewUser.email === user?.email) {
+      return (
+        kycSelfie ||
+        reviewUser.selfiePath ||
+        reviewUser.selfieUrl ||
+        reviewUser.profileImageUrl
+      );
+    }
+
+    // For review users, check their KYC data
+    const reviewUserKyc = reviewUserKycData[reviewUser.email];
+    return (
+      reviewUserKyc ||
+      reviewUser.selfiePath ||
+      reviewUser.selfieUrl ||
+      reviewUser.profileImageUrl
+    );
+  };
+
+  // ✅ Function to get user initial
+  const getUserInitial = (reviewUser) => {
+    if (!reviewUser) return "?";
+    return (
+      reviewUser.fullName?.charAt(0).toUpperCase() ||
+      reviewUser.name?.charAt(0).toUpperCase() ||
+      "?"
+    );
+  };
+
+  // ✅ Updated profile image rendering function
+  const renderProfileImage = (reviewUser, size = "w-10 h-10") => {
+    if (!reviewUser) {
       return (
         <div
           className={`${size} rounded-full bg-gray-300 text-white flex items-center justify-center font-bold`}
@@ -237,25 +331,23 @@ export default function ProductDetails() {
       );
     }
 
-    // Check if user has a selfie (profile image)
-    if (user.selfieUrl || user.profileImageUrl) {
+    const profileImageSrc = getProfileImageSrc(reviewUser);
+
+    if (profileImageSrc) {
       return (
         <img
-          src={user.selfieUrl || user.profileImageUrl}
-          alt={user.fullName || "User"}
-          className={`${size} rounded-full object-cover`}
+          src={profileImageSrc}
+          alt={reviewUser.fullName || reviewUser.name || "User"}
+          className={`${size} rounded-full object-cover border-2 border-blue-200`}
         />
       );
     }
 
     // Fall back to first letter of name
-    const firstLetter =
-      user.fullName?.charAt(0).toUpperCase() ||
-      user.name?.charAt(0).toUpperCase() ||
-      "?";
+    const firstLetter = getUserInitial(reviewUser);
     return (
       <div
-        className={`${size} rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm`}
+        className={`${size} rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm`}
       >
         {firstLetter}
       </div>
