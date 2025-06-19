@@ -5,21 +5,109 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const Profile = () => {
-  const { user, token } = useAuth();
+  const { user, getToken, setUser } = useAuth();
   const navigate = useNavigate();
   const [kyc, setKyc] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [profileFetched, setProfileFetched] = useState(false); // ✅ Add flag to prevent infinite calls
+
+  // Initialize form data as empty - we'll populate it after fetching current data
   const [formData, setFormData] = useState({
-    fullName: user?.fullName || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
+    fullName: "",
+    email: "",
+    phone: "",
     address: "",
+    profilePhoto: "",
   });
+
+  const token = getToken();
   const [errors, setErrors] = useState({});
 
+  // Fetch current user profile data
+  const fetchUserProfile = async () => {
+    if (!token || profileFetched) return; // ✅ Prevent multiple calls
+
+    try {
+      console.log("🐛 Fetching current user profile...");
+      const response = await fetch("http://localhost:8000/api/auth/profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        console.log("🐛 Fetched user data:", userData);
+
+        // Update form data with latest server data
+        setFormData({
+          fullName: userData.user?.fullName || "",
+          email: userData.user?.email || "",
+          phone: userData.user?.phone || "",
+          address: userData.user?.address || "",
+          profilePhoto: userData.user?.profilePhoto || "",
+        });
+
+        // ✅ Only update context if user data is actually different
+        if (JSON.stringify(user) !== JSON.stringify(userData.user)) {
+          setUser(userData.user);
+        }
+
+        setProfileFetched(true); // ✅ Mark as fetched
+      }
+    } catch (err) {
+      console.error("🐛 Error fetching profile:", err);
+    }
+  };
+
+  // ✅ FIXED: Split the effects and add proper dependencies
+  // Auth test effect - runs only once when component mounts
   useEffect(() => {
-    if (!user) return navigate("/login");
+    const testAuth = async () => {
+      console.log("🐛 Testing auth endpoint...");
+      console.log("🐛 Current user:", user);
+      console.log("🐛 Current token:", token);
+
+      if (!token) {
+        console.log("🐛 No token available");
+        return;
+      }
+
+      try {
+        const response = await fetch("http://localhost:8000/api/auth/test", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        const result = await response.json();
+        console.log("🐛 Auth test result:", result);
+      } catch (err) {
+        console.error("🐛 Auth test error:", err);
+      }
+    };
+
+    // Only run once when component mounts
+    if (token && !profileFetched) {
+      testAuth();
+      fetchUserProfile();
+    }
+  }, [token]); // ✅ Only depend on token, not user
+
+  // ✅ Separate effect for user authentication check
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+  }, [user, navigate]);
+
+  // ✅ Separate effect for KYC data fetching
+  useEffect(() => {
+    if (!user) return;
 
     const fetchKYC = async () => {
       setIsLoading(true);
@@ -40,10 +128,12 @@ const Profile = () => {
 
           const detail = await kycDetails.json();
           setKyc(detail.kyc);
+
+          // Only update address and phone from KYC if form data is empty
           setFormData((prev) => ({
             ...prev,
-            address: detail.kyc.address || "",
-            phone: detail.kyc.phone || prev.phone,
+            address: prev.address || detail.kyc.address || "",
+            phone: prev.phone || detail.kyc.phone || "",
           }));
         }
       } catch (err) {
@@ -54,8 +144,11 @@ const Profile = () => {
       }
     };
 
-    fetchKYC();
-  }, [user, navigate]);
+    // Only fetch KYC once when user is available
+    if (user?.email && !kyc) {
+      fetchKYC();
+    }
+  }, [user?.email]); // ✅ Only depend on user.email
 
   const validateForm = () => {
     const newErrors = {};
@@ -80,6 +173,7 @@ const Profile = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    console.log(`🐛 Form field changed: ${name} = ${value}`);
     setFormData((prev) => ({ ...prev, [name]: value }));
 
     // Clear error when user starts typing
@@ -91,10 +185,19 @@ const Profile = () => {
   const handleSave = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
+    console.log("🐛 SAVE CLICKED");
+    console.log("🐛 Current form data:", formData);
+    console.log("🐛 Current token:", token);
+
+    if (!validateForm()) {
+      console.log("🐛 Form validation failed:", errors);
+      return;
+    }
 
     setIsSaving(true);
     try {
+      console.log("🐛 Making API call to complete-profile...");
+
       const res = await fetch(
         "http://localhost:8000/api/auth/complete-profile",
         {
@@ -107,14 +210,45 @@ const Profile = () => {
         }
       );
 
+      console.log("🐛 API Response status:", res.status);
+      console.log("🐛 API Response headers:", res.headers);
+
       const result = await res.json();
+      console.log("🐛 API Response body:", result);
+
       if (res.ok) {
         toast.success("Profile updated successfully!");
+        console.log("🐛 Profile update successful!");
+
+        if (result.user) {
+          console.log("🐛 Updating user context and localStorage...");
+
+          // Create updated user object with token
+          const updatedUser = { ...result.user, token };
+
+          // Update localStorage with new data
+          localStorage.setItem("user", JSON.stringify(updatedUser));
+
+          // ✅ Update context without triggering infinite loop
+          setUser(updatedUser);
+
+          // Update form data to reflect saved changes (this ensures form shows saved data)
+          setFormData({
+            fullName: result.user.fullName || "",
+            email: result.user.email || "",
+            phone: result.user.phone || "",
+            address: result.user.address || "",
+            profilePhoto: result.user.profilePhoto || "",
+          });
+
+          console.log("🐛 Updated localStorage:", localStorage.getItem("user"));
+        }
       } else {
+        console.error("🐛 API Error:", result);
         throw new Error(result.message || "Failed to update profile");
       }
     } catch (err) {
-      console.error("Error updating profile:", err);
+      console.error("🐛 Save error:", err);
       toast.error(err.message);
     } finally {
       setIsSaving(false);
@@ -129,58 +263,169 @@ const Profile = () => {
     );
   }
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type and size
+    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please upload a valid image file (JPEG, PNG, WebP)");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      // 5MB limit
+      toast.error("File size should be less than 5MB");
+      return;
+    }
+
+    // Show loading state
+    toast.info("Uploading image...");
+
+    const formDataUpload = new FormData();
+    formDataUpload.append("file", file);
+    formDataUpload.append(
+      "upload_preset",
+      process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || "your_upload_preset"
+    );
+    formDataUpload.append("folder", "user_profiles");
+
+    // Add transformation for profile optimization
+    formDataUpload.append(
+      "transformation",
+      "c_fill,w_400,h_400,g_face/q_auto,f_auto"
+    );
+
+    try {
+      const cloudName =
+        process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || "dimvxyg4c";
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        {
+          method: "POST",
+          body: formDataUpload,
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || "Upload failed");
+      }
+
+      const data = await res.json();
+      setFormData((prev) => ({ ...prev, profilePhoto: data.secure_url }));
+      toast.success("Profile photo uploaded successfully!");
+
+      console.log("🐛 New profile photo uploaded:", data.secure_url);
+    } catch (err) {
+      console.error("Image upload error:", err);
+      toast.error(`Failed to upload image: ${err.message}`);
+    }
+  };
+
+  // Optional: Separate function to update profile photo via API
+  const updateProfilePhotoOnServer = async (photoUrl) => {
+    try {
+      const res = await fetch(
+        "http://localhost:8000/api/auth/update-profile-photo",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ profilePhoto: photoUrl }),
+        }
+      );
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update profile photo");
+      }
+
+      const result = await res.json();
+      console.log("🐛 Profile photo updated on server:", result);
+
+      return result;
+    } catch (err) {
+      console.error("🐛 Error updating profile photo on server:", err);
+      throw err;
+    }
+  };
   return (
     <div className="max-w-3xl mx-auto my-8 p-6 bg-white rounded-xl shadow-md">
+      {/* 🐛 DEBUG INFO */}
+      <div className="mb-4 p-4 bg-gray-100 rounded text-sm">
+        <h3 className="font-bold">🐛 Debug Info:</h3>
+        <p>User: {user ? user.email : "None"}</p>
+        <p>Token: {token ? "Present" : "Missing"}</p>
+        <p>Profile Fetched: {profileFetched ? "Yes" : "No"}</p>
+        <p>Form Data: {JSON.stringify(formData, null, 2)}</p>
+        <p>LocalStorage User: {localStorage.getItem("user")}</p>
+      </div>
+
       <div className="flex flex-col md:flex-row gap-8">
         {/* Profile Picture Section */}
         <div className="md:w-1/3 flex flex-col items-center">
-          {kyc?.selfiePath ? (
-            <>
-              <div className="relative mb-4">
-                <img
-                  src={kyc.selfiePath}
-                  alt="Profile"
-                  className="w-40 h-40 rounded-full object-cover border-4 border-blue-100 shadow-md"
-                />
-                <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white rounded-full p-2 shadow-lg">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
+          <div className="relative mb-4">
+            {formData.profilePhoto || kyc?.selfiePath ? (
+              <img
+                src={formData.profilePhoto || kyc.selfiePath}
+                alt="Profile"
+                className="w-40 h-40 rounded-full object-cover border-4 border-blue-100 shadow-md"
+              />
+            ) : (
+              <div className="w-40 h-40 rounded-full bg-gray-200 flex items-center justify-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-16 w-16 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
               </div>
-              <span className="text-sm text-gray-500">KYC Verified</span>
-            </>
-          ) : (
-            <div className="w-40 h-40 rounded-full bg-gray-200 flex items-center justify-center mb-4">
+            )}
+
+            <input
+              type="file"
+              accept="image/*"
+              id="uploadProfilePhoto"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            <label
+              htmlFor="uploadProfilePhoto"
+              className="absolute -bottom-2 -right-2 bg-blue-500 text-white rounded-full p-2 shadow-lg cursor-pointer"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-16 w-16 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
               >
                 <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  fillRule="evenodd"
+                  d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z"
+                  clipRule="evenodd"
                 />
               </svg>
-            </div>
-          )}
+            </label>
+          </div>
 
-          <button className="mt-4 px-4 py-2 bg-blue-100 text-blue-600 rounded-md text-sm font-medium hover:bg-blue-200 transition-colors">
+          <label
+            htmlFor="uploadProfilePhoto"
+            className="mt-4 px-4 py-2 bg-blue-100 text-blue-600 rounded-md text-sm font-medium hover:bg-blue-200 transition-colors cursor-pointer"
+          >
             Update Photo
-          </button>
+          </label>
         </div>
 
         {/* Profile Form Section */}

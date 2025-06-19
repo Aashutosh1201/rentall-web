@@ -46,6 +46,18 @@ router.post(
           { folder: "rentall/kyc/selfies" }
         );
         selfieUrl = selfieUpload.secure_url;
+
+        const profilePhotoUpload = await cloudinary.uploader.upload(
+          req.files.selfie[0].path,
+          { folder: "rentall/profile_photos" }
+        );
+
+        const user = await User.findOne({ email });
+        if (user) {
+          user.profilePhoto = selfieUrl; // Save the selfie as profile image
+          user.phone = phone || user.phone;
+          await user.save();
+        }
       } catch (uploadErr) {
         console.error("Cloudinary upload error:", uploadErr);
         return res

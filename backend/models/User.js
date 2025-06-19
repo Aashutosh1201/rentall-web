@@ -7,6 +7,10 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    profilePhoto: {
+      type: String,
+      default: "",
+    },
     email: {
       type: String,
       required: true,
@@ -20,6 +24,11 @@ const userSchema = new mongoose.Schema(
     phone: {
       type: String,
       required: true,
+    },
+    address: {
+      type: String,
+      default: "",
+      trim: true,
     },
     googleId: {
       type: String,

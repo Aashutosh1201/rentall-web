@@ -168,6 +168,47 @@ const checkPasswordStrength = (password) => {
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
+// Function to copy image in Cloudinary
+// Function to copy image in Cloudinary
+const copyImageInCloudinary = async (originalUrl) => {
+  try {
+    if (!originalUrl) return null;
+
+    const cloudinary = require("cloudinary").v2;
+
+    // Configure Cloudinary
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
+    // Extract the public_id from the original URL to get a unique identifier
+    const urlParts = originalUrl.split("/");
+    const fileNameWithVersion = urlParts[urlParts.length - 1];
+    const fileName = fileNameWithVersion.split(".")[0];
+
+    // Create a unique public_id for the profile copy
+    const uniqueId = `profile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Copy the image with a new public_id for profile use
+    const result = await cloudinary.uploader.upload(originalUrl, {
+      public_id: uniqueId,
+      folder: "user_profiles",
+      transformation: [
+        { width: 400, height: 400, crop: "fill", gravity: "face" }, // Optimize for profile use
+        { quality: "auto", fetch_format: "auto" },
+      ],
+    });
+
+    console.log("🐛 Image copied successfully:", result.secure_url);
+    return result.secure_url;
+  } catch (error) {
+    console.error("Error copying image in Cloudinary:", error);
+    return originalUrl; // Return original URL if copy fails
+  }
+};
+
 const registerUser = async (req, res) => {
   try {
     const { fullName, email, phone, password } = req.body;
@@ -406,12 +447,29 @@ const completeVerification = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
+    // Check if user has KYC data and copy profile image
+    let profilePhotoUrl = null;
+    try {
+      const KYC = require("../models/KYC");
+      const kycData = await KYC.findOne({ email });
+
+      if (kycData && kycData.selfiePath) {
+        console.log("🐛 Found KYC selfie, creating profile copy...");
+        profilePhotoUrl = await copyImageInCloudinary(kycData.selfiePath);
+        console.log("🐛 Profile photo URL:", profilePhotoUrl);
+      }
+    } catch (kycError) {
+      console.error("Error processing KYC image:", kycError);
+      // Continue without profile photo if KYC processing fails
+    }
+
     const newUser = new User({
       fullName: tempUser.fullName,
       email: tempUser.email,
       phone: tempUser.phone,
       password: tempUser.password,
-      isActive: true, // ✅ this makes it work after login
+      profilePhoto: profilePhotoUrl, // Set the copied image
+      isActive: true,
       createdFromIP: tempUser.registrationIP,
       userAgent: tempUser.userAgent,
     });
@@ -419,9 +477,10 @@ const completeVerification = async (req, res) => {
     await newUser.save();
     await TempUser.deleteOne({ _id: tempUser._id });
 
-    res
-      .status(201)
-      .json({ message: "User verified and activated successfully" });
+    res.status(201).json({
+      message: "User verified and activated successfully",
+      profilePhotoSet: !!profilePhotoUrl,
+    });
   } catch (error) {
     console.error("Verification Error:", error);
     res.status(500).json({ message: "Verification failed" });
