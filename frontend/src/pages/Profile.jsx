@@ -10,9 +10,8 @@ const Profile = () => {
   const [kyc, setKyc] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [profileFetched, setProfileFetched] = useState(false); // ✅ Add flag to prevent infinite calls
+  const [profileFetched, setProfileFetched] = useState(false);
 
-  // Initialize form data as empty - we'll populate it after fetching current data
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -26,10 +25,9 @@ const Profile = () => {
 
   // Fetch current user profile data
   const fetchUserProfile = async () => {
-    if (!token || profileFetched) return; // ✅ Prevent multiple calls
+    if (!token || profileFetched) return;
 
     try {
-      console.log("🐛 Fetching current user profile...");
       const response = await fetch("http://localhost:8000/api/auth/profile", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -39,9 +37,7 @@ const Profile = () => {
 
       if (response.ok) {
         const userData = await response.json();
-        console.log("🐛 Fetched user data:", userData);
 
-        // Update form data with latest server data
         setFormData({
           fullName: userData.user?.fullName || "",
           email: userData.user?.email || "",
@@ -50,30 +46,21 @@ const Profile = () => {
           profilePhoto: userData.user?.profilePhoto || "",
         });
 
-        // ✅ Only update context if user data is actually different
         if (JSON.stringify(user) !== JSON.stringify(userData.user)) {
           setUser(userData.user);
         }
 
-        setProfileFetched(true); // ✅ Mark as fetched
+        setProfileFetched(true);
       }
     } catch (err) {
-      console.error("🐛 Error fetching profile:", err);
+      console.error("Error fetching profile:", err);
     }
   };
 
-  // ✅ FIXED: Split the effects and add proper dependencies
-  // Auth test effect - runs only once when component mounts
+  // Auth test and profile fetch effect
   useEffect(() => {
     const testAuth = async () => {
-      console.log("🐛 Testing auth endpoint...");
-      console.log("🐛 Current user:", user);
-      console.log("🐛 Current token:", token);
-
-      if (!token) {
-        console.log("🐛 No token available");
-        return;
-      }
+      if (!token) return;
 
       try {
         const response = await fetch("http://localhost:8000/api/auth/test", {
@@ -83,21 +70,19 @@ const Profile = () => {
           },
         });
 
-        const result = await response.json();
-        console.log("🐛 Auth test result:", result);
+        await response.json();
       } catch (err) {
-        console.error("🐛 Auth test error:", err);
+        console.error("Auth test error:", err);
       }
     };
 
-    // Only run once when component mounts
     if (token && !profileFetched) {
       testAuth();
       fetchUserProfile();
     }
-  }, [token]); // ✅ Only depend on token, not user
+  }, [token]);
 
-  // ✅ Separate effect for user authentication check
+  // User authentication check
   useEffect(() => {
     if (!user) {
       navigate("/login");
@@ -105,7 +90,7 @@ const Profile = () => {
     }
   }, [user, navigate]);
 
-  // ✅ Separate effect for KYC data fetching
+  // KYC data fetching
   useEffect(() => {
     if (!user) return;
 
@@ -129,7 +114,6 @@ const Profile = () => {
           const detail = await kycDetails.json();
           setKyc(detail.kyc);
 
-          // Only update address and phone from KYC if form data is empty
           setFormData((prev) => ({
             ...prev,
             address: prev.address || detail.kyc.address || "",
@@ -144,11 +128,10 @@ const Profile = () => {
       }
     };
 
-    // Only fetch KYC once when user is available
     if (user?.email && !kyc) {
       fetchKYC();
     }
-  }, [user?.email]); // ✅ Only depend on user.email
+  }, [user?.email]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -173,10 +156,8 @@ const Profile = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    console.log(`🐛 Form field changed: ${name} = ${value}`);
     setFormData((prev) => ({ ...prev, [name]: value }));
 
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
@@ -185,19 +166,12 @@ const Profile = () => {
   const handleSave = async (e) => {
     e.preventDefault();
 
-    console.log("🐛 SAVE CLICKED");
-    console.log("🐛 Current form data:", formData);
-    console.log("🐛 Current token:", token);
-
     if (!validateForm()) {
-      console.log("🐛 Form validation failed:", errors);
       return;
     }
 
     setIsSaving(true);
     try {
-      console.log("🐛 Making API call to complete-profile...");
-
       const res = await fetch(
         "http://localhost:8000/api/auth/complete-profile",
         {
@@ -210,29 +184,16 @@ const Profile = () => {
         }
       );
 
-      console.log("🐛 API Response status:", res.status);
-      console.log("🐛 API Response headers:", res.headers);
-
       const result = await res.json();
-      console.log("🐛 API Response body:", result);
 
       if (res.ok) {
         toast.success("Profile updated successfully!");
-        console.log("🐛 Profile update successful!");
 
         if (result.user) {
-          console.log("🐛 Updating user context and localStorage...");
-
-          // Create updated user object with token
           const updatedUser = { ...result.user, token };
-
-          // Update localStorage with new data
           localStorage.setItem("user", JSON.stringify(updatedUser));
-
-          // ✅ Update context without triggering infinite loop
           setUser(updatedUser);
 
-          // Update form data to reflect saved changes (this ensures form shows saved data)
           setFormData({
             fullName: result.user.fullName || "",
             email: result.user.email || "",
@@ -240,34 +201,22 @@ const Profile = () => {
             address: result.user.address || "",
             profilePhoto: result.user.profilePhoto || "",
           });
-
-          console.log("🐛 Updated localStorage:", localStorage.getItem("user"));
         }
       } else {
-        console.error("🐛 API Error:", result);
         throw new Error(result.message || "Failed to update profile");
       }
     } catch (err) {
-      console.error("🐛 Save error:", err);
+      console.error("Save error:", err);
       toast.error(err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file type and size
     const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
       toast.error("Please upload a valid image file (JPEG, PNG, WebP)");
@@ -275,12 +224,10 @@ const Profile = () => {
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      // 5MB limit
       toast.error("File size should be less than 5MB");
       return;
     }
 
-    // Show loading state
     toast.info("Uploading image...");
 
     const formDataUpload = new FormData();
@@ -310,15 +257,12 @@ const Profile = () => {
       const data = await res.json();
       setFormData((prev) => ({ ...prev, profilePhoto: data.secure_url }));
       toast.success("Profile photo uploaded successfully!");
-
-      console.log("🐛 New profile photo uploaded:", data.secure_url);
     } catch (err) {
       console.error("Image upload error:", err);
       toast.error(`Failed to upload image: ${err.message}`);
     }
   };
 
-  // Optional: Separate function to update profile photo via API
   const updateProfilePhotoOnServer = async (photoUrl) => {
     try {
       const res = await fetch(
@@ -339,26 +283,23 @@ const Profile = () => {
       }
 
       const result = await res.json();
-      console.log("🐛 Profile photo updated on server:", result);
-
       return result;
     } catch (err) {
-      console.error("🐛 Error updating profile photo on server:", err);
+      console.error("Error updating profile photo on server:", err);
       throw err;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto my-8 p-6 bg-white rounded-xl shadow-md">
-      {/* 🐛 DEBUG INFO */}
-      <div className="mb-4 p-4 bg-gray-100 rounded text-sm">
-        <h3 className="font-bold">🐛 Debug Info:</h3>
-        <p>User: {user ? user.email : "None"}</p>
-        <p>Token: {token ? "Present" : "Missing"}</p>
-        <p>Profile Fetched: {profileFetched ? "Yes" : "No"}</p>
-        <p>Form Data: {JSON.stringify(formData, null, 2)}</p>
-        <p>LocalStorage User: {localStorage.getItem("user")}</p>
-      </div>
-
       <div className="flex flex-col md:flex-row gap-8">
         {/* Profile Picture Section */}
         <div className="md:w-1/3 flex flex-col items-center">
