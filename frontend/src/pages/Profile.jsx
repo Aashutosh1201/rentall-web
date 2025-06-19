@@ -291,12 +291,6 @@ const Profile = () => {
     );
     formDataUpload.append("folder", "user_profiles");
 
-    // Add transformation for profile optimization
-    formDataUpload.append(
-      "transformation",
-      "c_fill,w_400,h_400,g_face/q_auto,f_auto"
-    );
-
     try {
       const cloudName =
         process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || "dimvxyg4c";
