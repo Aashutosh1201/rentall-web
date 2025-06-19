@@ -48,35 +48,7 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [kycSelfie, setKycSelfie] = useState(null);
   const navigate = useNavigate();
-
-  // Fetch KYC data to get the selfie
-  useEffect(() => {
-    if (!user?.email) return;
-
-    const fetchKYCSelfie = async () => {
-      try {
-        const res = await fetch(
-          `http://localhost:8000/api/kyc/status/${user.email}`
-        );
-        const data = await res.json();
-        if (data.exists) {
-          const kycDetails = await fetch(
-            `http://localhost:8000/api/kyc/detail/${user.email}`
-          );
-          const detail = await kycDetails.json();
-          if (detail.kyc?.selfiePath) {
-            setKycSelfie(detail.kyc.selfiePath);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch KYC selfie:", err);
-      }
-    };
-
-    fetchKYCSelfie();
-  }, [user?.email]);
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
@@ -98,8 +70,7 @@ const Navbar = () => {
 
   // Function to get the profile image source
   const getProfileImageSrc = () => {
-    // First check for KYC selfie, then fallback to user selfie from auth context
-    return kycSelfie || user?.selfiePath;
+    return user?.profilePhoto || null;
   };
 
   // Function to get user initial
