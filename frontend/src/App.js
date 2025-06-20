@@ -22,7 +22,7 @@ import {
   DashboardHome,
   MyOrders,
   MyProducts,
-  DashboardLayout, // ✅ Renamed to avoid conflict
+  DashboardLayout,
 } from "./pages/Dashboard/Dashboard";
 
 // Lazy load components

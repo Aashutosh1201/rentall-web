@@ -13,31 +13,57 @@ export default function Cart() {
     fetchCart();
   }, []);
 
-  const fetchCart = () => {
+  const fetchCart = async () => {
     setIsLoading(true);
-    axios
-      .get("http://localhost:8000/api/cart", {
+    try {
+      const cartRes = await axios.get("http://localhost:8000/api/cart", {
         headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        const updated = res.data.items.map((item) => {
-          const today = new Date().toISOString().split("T")[0];
-          return {
-            ...item,
-            startDate: item.startDate?.split("T")[0] || today,
-            rentalDays: item.rentalDays || 1,
-            endDate: item.endDate?.split("T")[0] || today,
-            // Ensure we have pricePerDay for calculations
-            pricePerDay: item.pricePerDay || item.product?.pricePerDay || 0,
-          };
-        });
-        setCart({ ...res.data, items: updated });
-      })
-      .catch((err) => {
-        console.error("Error fetching cart:", err);
-        setErrors({ general: "Failed to load cart" });
-      })
-      .finally(() => setIsLoading(false));
+      });
+
+      const today = new Date().toISOString().split("T")[0];
+
+      const updated = cartRes.data.items.map((item) => ({
+        ...item,
+        startDate: item.startDate?.split("T")[0] || today,
+        endDate: item.endDate?.split("T")[0] || today,
+        rentalDays: item.rentalDays || 1,
+        pricePerDay: item.pricePerDay || item.product?.pricePerDay || 0,
+      }));
+
+      // Fetch latest rental info for each item
+      const rentalStatuses = await Promise.all(
+        updated.map((item) =>
+          axios
+            .get(
+              `http://localhost:8000/api/rentals/latest/${item.product._id}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            )
+            .then((res) => res.data)
+            .catch((err) => {
+              console.warn(
+                `Failed to fetch rental info for ${item.product._id}`,
+                err
+              );
+              return { isRented: false };
+            })
+        )
+      );
+
+      // Attach rental info to each cart item
+      const updatedWithRentalInfo = updated.map((item, index) => ({
+        ...item,
+        rentalInfo: rentalStatuses[index],
+      }));
+
+      setCart({ ...cartRes.data, items: updatedWithRentalInfo });
+    } catch (err) {
+      console.error("Error fetching cart:", err);
+      setErrors({ general: "Failed to load cart" });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const updateItem = async (index, field, value) => {
@@ -117,8 +143,18 @@ export default function Cart() {
       console.error("Error status:", err.response?.status);
 
       // Show user-friendly error
+      const resData = err.response?.data;
+      let msg = "Failed to update cart item.";
+
+      if (resData?.message) {
+        msg = resData.message;
+        if (resData.hint) {
+          msg += `\n${resData.hint}`;
+        }
+      }
+
       setErrors({
-        [index]: `Failed to save changes: ${err.response?.data?.message || "Please try again"}`,
+        [index]: msg,
       });
 
       // Optionally revert the local state change
@@ -166,8 +202,13 @@ export default function Cart() {
       }
     });
 
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+    // Merge validation errors with existing ones from updateItem()
+    const combinedErrors = { ...errors, ...validationErrors };
+
+    // If there are any error messages, block checkout
+    if (Object.keys(combinedErrors).length > 0) {
+      setErrors(combinedErrors);
+      console.warn("Checkout blocked due to errors:", combinedErrors);
       return;
     }
 
@@ -320,6 +361,24 @@ export default function Cart() {
                             <h3 className="text-lg font-medium text-gray-900">
                               {item.product?.title || "Unknown Product"}
                             </h3>
+                            {item.rentalInfo?.isRented && (
+                              <p className="text-sm text-red-600">
+                                Currently rented until{" "}
+                                <strong>
+                                  {new Date(
+                                    item.rentalInfo.rentedUntil
+                                  ).toLocaleDateString()}
+                                </strong>
+                                . Available from{" "}
+                                <strong>
+                                  {new Date(
+                                    item.rentalInfo.availableFrom
+                                  ).toLocaleDateString()}
+                                </strong>
+                                .
+                              </p>
+                            )}
+
                             <p className="mt-1 text-sm text-gray-500">
                               Rs. {pricePerDay} per day
                             </p>
@@ -414,9 +473,19 @@ export default function Cart() {
                         </div>
 
                         {errors[i] && (
-                          <p className="mt-2 text-sm text-red-600">
-                            {errors[i]}
-                          </p>
+                          <div className="mt-2 text-sm text-red-600">
+                            <p>{errors[i]}</p>
+                            {item.rentalInfo?.availableFrom && (
+                              <p className="text-xs text-gray-500">
+                                This item will be available from:{" "}
+                                <span className="font-medium">
+                                  {new Date(
+                                    item.rentalInfo.availableFrom
+                                  ).toLocaleDateString()}
+                                </span>
+                              </p>
+                            )}
+                          </div>
                         )}
 
                         <div className="mt-4 flex justify-end">
@@ -451,8 +520,17 @@ export default function Cart() {
                 </button>
                 <button
                   onClick={validateAndCheckout}
-                  className="px-6 py-3 bg-blue-600 border border-transparent rounded-md text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 flex items-center justify-center"
-                  disabled={isLoading || cart.items.length === 0}
+                  className={`px-6 py-3 border border-transparent rounded-md text-base font-medium text-white transition-colors duration-200 flex items-center justify-center
+    ${
+      isLoading || cart.items.length === 0 || Object.keys(errors).length > 0
+        ? "bg-blue-300 cursor-not-allowed opacity-50"
+        : "bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+    }`}
+                  disabled={
+                    isLoading ||
+                    cart.items.length === 0 ||
+                    Object.keys(errors).length > 0
+                  }
                 >
                   {isLoading ? (
                     <>

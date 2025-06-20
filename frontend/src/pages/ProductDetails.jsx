@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { ToastContainer, toast } from "react-toastify";
 import {
   FaMapMarkerAlt,
   FaCalendarAlt,
@@ -195,9 +196,23 @@ export default function ProductDetails() {
 
   const handleAddToCartClick = async () => {
     try {
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+
+      const startDate = today.toISOString();
+      const endDate = tomorrow.toISOString();
+
       await axios.post(
         "http://localhost:8000/api/cart/add",
-        { productId: product._id, quantity: 1 },
+        {
+          productId: product._id,
+          quantity: 1,
+          rentalDays: 1,
+          startDate,
+          endDate,
+          pricePerDay: product.pricePerDay,
+        },
         {
           headers: {
             Authorization: `Bearer ${userToken}`,
@@ -206,7 +221,13 @@ export default function ProductDetails() {
       );
       alert("Product added to cart!");
     } catch (error) {
-      console.error("Add to cart failed:", error.response?.data || error);
+      const data = error.response?.data;
+      const msg = data?.message || "Add to cart failed.";
+      const hint = data?.hint;
+
+      // Format message properly for toast
+      toast.error(`${msg}${hint ? `\n${hint}` : ""}`);
+      console.warn("Cart add failed:", data);
     }
   };
 
@@ -587,6 +608,15 @@ export default function ProductDetails() {
           </div>
         </div>
       </div>
+      <ToastContainer
+        position="top-right"
+        autoClose={4000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        draggable
+      />
     </div>
   );
 }
