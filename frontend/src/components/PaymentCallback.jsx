@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { jwtDecode } from "jwt-decode";
 
 export default function PaymentCallback() {
   const [searchParams] = useSearchParams();
@@ -13,22 +14,18 @@ export default function PaymentCallback() {
   const mountedRef = useRef(true);
 
   // Function to attempt user restoration from localStorage
-  const restoreUserSession = () => {
-    try {
-      const storedUser = localStorage.getItem("user");
-      const storedToken = localStorage.getItem("token");
+  const restoreUserSession = async () => {
+    const storedToken = localStorage.getItem("token");
 
-      if (storedUser && storedToken) {
-        const userData = JSON.parse(storedUser);
-        if (login && typeof login === "function") {
-          login({ ...userData, token: storedToken });
-          return { ...userData, token: storedToken };
-        }
+    if (login && typeof login === "function" && storedToken) {
+      const success = await login(storedToken);
+      if (success) {
+        const decoded = jwtDecode(storedToken);
+        return { ...decoded, token: storedToken };
       }
-      return null;
-    } catch (error) {
-      return null;
     }
+
+    return null; // fallback if login fails
   };
 
   useEffect(() => {
@@ -72,7 +69,15 @@ export default function PaymentCallback() {
         // Handle authentication - try to restore if not present
         let currentUser = user;
         if (!currentUser?.token) {
-          currentUser = restoreUserSession();
+          currentUser = await restoreUserSession();
+          if (!currentUser?.token) {
+            setStatus("error");
+            setMessage(
+              "Authentication session expired. Please log in and contact support with your payment reference: " +
+                pidx
+            );
+            return;
+          }
         }
 
         // If payment is completed and we have user + amount, try direct creation

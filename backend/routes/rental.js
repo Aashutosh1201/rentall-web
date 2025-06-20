@@ -7,6 +7,7 @@ const { verifyToken } = require("../middleware/authMiddleware");
 const Rental = require("../models/Rental");
 const Product = require("../models/Product");
 const mongoose = require("mongoose");
+const Cart = require("../models/Cart");
 
 // Function to generate unique purchase order ID
 function generatePurchaseOrderId() {
@@ -81,6 +82,25 @@ router.post("/create", verifyToken, async (req, res) => {
       });
     }
 
+    // Check for date overlap with existing rentals for the same product
+    const overlappingRental = await Rental.findOne({
+      productId,
+      $or: [
+        {
+          startDate: { $lte: end },
+          endDate: { $gte: start },
+        },
+      ],
+    });
+
+    if (overlappingRental) {
+      return res.status(409).json({
+        success: false,
+        message: "This item is already rented during the selected period.",
+        conflictRental: overlappingRental,
+      });
+    }
+
     // Check if rental already exists with this paymentId
     const existingRental = await Rental.findOne({ paymentId });
     if (existingRental) {
@@ -117,6 +137,11 @@ router.post("/create", verifyToken, async (req, res) => {
     console.log("Saving rental:", rental); // Debug log
     const savedRental = await rental.save();
     console.log("Rental saved successfully:", savedRental._id); // Debug log
+
+    await Cart.updateOne(
+      { user: req.user.id },
+      { $pull: { items: { product: productId } } }
+    );
 
     res.status(201).json({
       success: true,

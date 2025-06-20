@@ -169,8 +169,9 @@ router.post("/khalti/initiate", verifyToken, async (req, res) => {
       // The request was made but no response was received
       console.error("No response received:", error.request);
       res.status(500).json({
-        message: "Unable to connect to payment service",
-        details: "Network error - please check your internet connection",
+        message: "Payment service is currently unreachable.",
+        hint: "Please check your internet connection or try again in a few moments.",
+        code: "PAYMENT_NETWORK_ERROR",
       });
     } else {
       // Something happened in setting up the request
@@ -256,6 +257,25 @@ router.post("/khalti/verify", verifyToken, async (req, res) => {
               rentalCreated = true;
               rentalId = existingRental._id;
             } else {
+              const now = new Date();
+
+              const conflict = await Rental.findOne({
+                productId: rentalData.productId,
+                $or: [
+                  {
+                    startDate: { $lte: new Date(rentalData.endDate) },
+                    endDate: { $gte: new Date(rentalData.startDate) },
+                  },
+                ],
+              });
+
+              if (conflict) {
+                console.warn("Rental conflict detected:", conflict);
+                return res.status(409).json({
+                  success: false,
+                  message: `The item is already rented during ${rentalData.startDate} to ${rentalData.endDate}. Please select different dates.`,
+                });
+              }
               // Create new rental record
               const rental = new Rental({
                 userId: req.user.userId || req.user.id,

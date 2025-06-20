@@ -1,4 +1,5 @@
 const Cart = require("../models/Cart");
+const Rental = require("../models/Rental");
 
 exports.addToCart = async (req, res) => {
   const userId = req.user.id;
@@ -8,48 +9,67 @@ exports.addToCart = async (req, res) => {
     rentalDays = 1,
     startDate,
     endDate,
-    pricePerDay, // Add this to calculate total
+    pricePerDay,
   } = req.body;
 
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+
+  const start = startDate ? new Date(startDate) : today;
+  const end = endDate ? new Date(endDate) : tomorrow;
+
   try {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (start >= end) {
+      return res
+        .status(400)
+        .json({ message: "End date must be after start date." });
+    }
+
+    // 2. Load or create cart
     let cart = await Cart.findOne({ user: userId });
     if (!cart) cart = new Cart({ user: userId, items: [] });
 
-    const index = cart.items.findIndex(
+    // 3. Prevent duplicates
+    const alreadyInCart = cart.items.find(
       (item) => item.product.toString() === productId
     );
-
-    // Calculate total amount for this item
-    const total = pricePerDay ? pricePerDay * rentalDays * quantity : 0;
-
-    if (index > -1) {
-      // Update existing item
-      cart.items[index].quantity = quantity; // Set quantity instead of adding
-      cart.items[index].rentalDays = rentalDays;
-      cart.items[index].startDate = startDate;
-      cart.items[index].endDate = endDate;
-      cart.items[index].total = total;
-      cart.items[index].pricePerDay = pricePerDay;
-    } else {
-      // Add new item with structure expected by PaymentCallback
-      cart.items.push({
-        product: productId,
-        productId: productId, // Add this for PaymentCallback compatibility
-        quantity,
-        rentalDays,
-        startDate,
-        endDate,
-        total, // Add total calculation
-        pricePerDay, // Add price per day
+    if (alreadyInCart) {
+      return res.status(400).json({
+        success: false,
+        message: "This item is already in your cart.",
+        hint: "You can update the rental dates or quantity from your cart.",
+        code: "CART_DUPLICATE",
       });
     }
+
+    // 4. Add item
+    const total = pricePerDay ? pricePerDay * rentalDays * quantity : 0;
+
+    cart.items.push({
+      product: productId,
+      quantity,
+      rentalDays,
+      startDate: start,
+      endDate: end,
+      total,
+      pricePerDay,
+    });
 
     await cart.save();
     res.status(200).json(cart);
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Error adding to cart", error: err.message });
+    console.error("Add to cart error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while processing your request.",
+      hint: "Please try again later or contact support if the problem continues.",
+      code: "INTERNAL_ERROR",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
   }
 };
 
@@ -110,25 +130,50 @@ exports.updateCartItem = async (req, res) => {
       return res.status(404).json({ message: "Item not found in cart" });
     }
 
+    const item = cart.items[itemIndex];
+    const start = new Date(startDate || item.startDate);
+    const end = new Date(endDate || item.endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid start or end date provided.",
+        code: "INVALID_DATE",
+      });
+    }
+
+    const conflictRental = await Rental.findOne({
+      productId,
+      $or: [{ startDate: { $lte: end }, endDate: { $gte: start } }],
+    });
+
+    if (conflictRental) {
+      return res.status(409).json({
+        success: false,
+        message: "Sorry, this item is already rented for the selected dates.",
+        hint: "Please choose another time frame.",
+        code: "RENTAL_CONFLICT",
+      });
+    }
+
     // Update the item
-    if (quantity !== undefined) cart.items[itemIndex].quantity = quantity;
-    if (rentalDays !== undefined) cart.items[itemIndex].rentalDays = rentalDays;
-    if (startDate !== undefined) cart.items[itemIndex].startDate = startDate;
-    if (endDate !== undefined) cart.items[itemIndex].endDate = endDate;
-    if (pricePerDay !== undefined)
-      cart.items[itemIndex].pricePerDay = pricePerDay;
+    if (quantity !== undefined) item.quantity = quantity;
+    if (rentalDays !== undefined) item.rentalDays = rentalDays;
+    if (startDate !== undefined) item.startDate = startDate;
+    if (endDate !== undefined) item.endDate = endDate;
+    if (pricePerDay !== undefined) item.pricePerDay = pricePerDay;
 
     // Recalculate total
-    const item = cart.items[itemIndex];
     item.total =
       (item.pricePerDay || 0) * (item.rentalDays || 1) * (item.quantity || 1);
 
     await cart.save();
     res.status(200).json(cart);
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Error updating cart item", error: err.message });
+    res.status(500).json({
+      message: "Error updating cart item",
+      error: err.message,
+    });
   }
 };
 
@@ -149,7 +194,46 @@ exports.prepareCartForCheckout = async (req, res) => {
     );
 
     if (!cart || !cart.items.length) {
-      return res.status(400).json({ message: "Cart is empty" });
+      return res.status(400).json({
+        success: false,
+        message: "Your cart is empty.",
+        code: "CART_EMPTY",
+      });
+    }
+
+    // Validate rental availability for each item
+    for (const item of cart.items) {
+      const start = new Date(item.startDate);
+      const end = new Date(item.endDate);
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid rental dates for item: "${item.product.name}"`,
+          code: "INVALID_DATE",
+        });
+      }
+
+      const conflictRental = await Rental.findOne({
+        productId: item.product._id.toString(),
+        $or: [{ startDate: { $lte: end }, endDate: { $gte: start } }],
+      });
+
+      if (conflictRental) {
+        return res.status(409).json({
+          success: false,
+          message: `The item "${item.product.name}" is already rented during your selected dates.`,
+          hint: "Please change the rental dates or remove this item from your cart.",
+          code: "RENTAL_CONFLICT",
+          conflict: {
+            productId: item.product._id,
+            conflictingPeriod: {
+              startDate: conflictRental.startDate,
+              endDate: conflictRental.endDate,
+            },
+          },
+        });
+      }
     }
 
     // Prepare cart data in the format expected by PaymentCallback
@@ -160,13 +244,14 @@ exports.prepareCartForCheckout = async (req, res) => {
         rentalDays: item.rentalDays,
         startDate: item.startDate,
         endDate: item.endDate,
-        total: item.total || item.pricePerDay * item.rentalDays * item.quantity,
+        total:
+          item.total || item.pricePerDay * item.rentalDays * item.quantity || 0,
         pricePerDay: item.pricePerDay,
-        productName: item.product.name, // Additional info for reference
+        productName: item.product.name,
       })),
     };
 
-    // Calculate total cart amount
+    // Calculate total amount
     const totalAmount = cartData.items.reduce(
       (sum, item) => sum + item.total,
       0
@@ -179,9 +264,12 @@ exports.prepareCartForCheckout = async (req, res) => {
       itemCount: cartData.items.length,
     });
   } catch (err) {
+    console.error("Error during prepareCheckout:", err);
     res.status(500).json({
-      message: "Error preparing cart for checkout",
-      error: err.message,
+      success: false,
+      message: "An error occurred while preparing your cart for checkout.",
+      code: "PREPARE_CART_FAILED",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }
 };
