@@ -15,6 +15,7 @@ export default function Rent() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [rentalConflict, setRentalConflict] = useState(null);
   const isCartAction = searchParams.get("action") === "cart";
 
   useEffect(() => {
@@ -120,6 +121,34 @@ export default function Rent() {
       };
 
       sessionStorage.setItem("pendingRental", JSON.stringify(rentalData));
+
+      // Check for rental conflict before proceeding
+      const conflictCheck = await fetch(
+        "http://localhost:8000/api/rentals/conflict-check",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+          body: JSON.stringify({
+            productId: product._id,
+            startDate,
+            endDate,
+          }),
+        }
+      );
+
+      const conflictResult = await conflictCheck.json();
+
+      if (!conflictCheck.ok) {
+        const reason = conflictResult.message || "Rental conflict detected.";
+        const hint = conflictResult.hint || "";
+
+        setRentalConflict(`${reason} ${hint}`);
+        setProcessing(false);
+        return;
+      }
 
       // Initialize Khalti payment
       const paymentData = {
@@ -316,6 +345,22 @@ export default function Rent() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
+      {rentalConflict && (
+        <div
+          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 max-w-2xl mx-auto mt-4"
+          role="alert"
+        >
+          <strong className="font-bold">⚠️ Rental Not Allowed: </strong>
+          <span className="block sm:inline">{rentalConflict}</span>
+          <button
+            onClick={() => setRentalConflict(null)}
+            className="absolute top-0 bottom-0 right-0 px-4 py-3 text-xl leading-none"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className="p-8">

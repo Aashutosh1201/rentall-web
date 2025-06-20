@@ -465,4 +465,42 @@ router.get("/hasRented/:productId", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+router.post("/conflict-check", verifyToken, async (req, res) => {
+  try {
+    const { productId, startDate, endDate } = req.body;
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (!productId || isNaN(start) || isNaN(end)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid rental period or product." });
+    }
+
+    const conflict = await Rental.findOne({
+      productId,
+      $or: [{ startDate: { $lte: end }, endDate: { $gte: start } }],
+    });
+
+    if (conflict) {
+      const availableFrom = new Date(conflict.endDate);
+      availableFrom.setDate(availableFrom.getDate() + 1);
+
+      return res.status(409).json({
+        message: "This item is already rented for the selected dates.",
+        hint: `Try booking after ${availableFrom.toLocaleDateString()}.`,
+      });
+    }
+
+    return res.json({ available: true });
+  } catch (err) {
+    console.error("Conflict check error:", err);
+    res
+      .status(500)
+      .json({ message: "Server error while checking rental conflict." });
+  }
+});
+
 module.exports = router;
