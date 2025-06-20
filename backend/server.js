@@ -79,6 +79,9 @@ app.use("/api/auth", (req, res, next) => {
 });
 
 // Register routes - FIXED ORDER
+const requestRoutes = require("./routes/requestRoutes");
+
+// Register routes
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes); // Only register once!
 app.use("/api/cart", cartRoutes);
@@ -90,6 +93,7 @@ app.use("/api/verification", verificationRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/requests", requestRoutes);
 
 // Root route
 app.get("/", (req, res) => {
