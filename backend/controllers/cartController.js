@@ -206,10 +206,13 @@ exports.prepareCartForCheckout = async (req, res) => {
       const start = new Date(item.startDate);
       const end = new Date(item.endDate);
 
+      const productName =
+        item.product?.name || item.product?.title || "this item";
+
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return res.status(400).json({
           success: false,
-          message: `Invalid rental dates for item: "${item.product.name}"`,
+          message: `Invalid rental dates for item: "${productName}"`,
           code: "INVALID_DATE",
         });
       }
@@ -220,16 +223,20 @@ exports.prepareCartForCheckout = async (req, res) => {
       });
 
       if (conflictRental) {
+        const availableFrom = new Date(conflictRental.endDate);
+        availableFrom.setDate(availableFrom.getDate() + 1);
+
         return res.status(409).json({
           success: false,
-          message: `The item "${item.product.name}" is already rented during your selected dates.`,
-          hint: "Please change the rental dates or remove this item from your cart.",
+          message: `The item "${productName}" is already rented during your selected dates.`,
+          hint: `It will be available from ${availableFrom.toLocaleDateString()}.`,
           code: "RENTAL_CONFLICT",
           conflict: {
             productId: item.product._id,
             conflictingPeriod: {
               startDate: conflictRental.startDate,
               endDate: conflictRental.endDate,
+              availableFrom,
             },
           },
         });
@@ -247,7 +254,8 @@ exports.prepareCartForCheckout = async (req, res) => {
         total:
           item.total || item.pricePerDay * item.rentalDays * item.quantity || 0,
         pricePerDay: item.pricePerDay,
-        productName: item.product.name,
+        productName:
+          item.product?.name || item.product?.title || "Unnamed product",
       })),
     };
 
