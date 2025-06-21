@@ -71,6 +71,10 @@ const rentalSchema = new mongoose.Schema(
 );
 
 // Index for efficient queries
+rentalSchema.index(
+  { productId: 1, startDate: 1, endDate: 1 },
+  { unique: true }
+);
 rentalSchema.index({ userId: 1, status: 1 });
 rentalSchema.index({ userId: 1, createdAt: -1 });
 rentalSchema.index({ purchaseOrderId: 1 }); // Index for quick lookup by purchase order ID
