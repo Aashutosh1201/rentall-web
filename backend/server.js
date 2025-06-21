@@ -7,6 +7,7 @@ dotenv.config();
 const passport = require("./config/passport");
 const session = require("express-session");
 const path = require("path");
+const { getCurrentUser } = require("./controllers/userController");
 
 const app = express();
 

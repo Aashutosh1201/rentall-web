@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
+const { verifyToken } = require("../middleware/authMiddleware");
 
 // GET /users - Fetch all users
 router.get("/", async (req, res) => {
@@ -28,4 +29,15 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+router.get("/refresh", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
 module.exports = router;

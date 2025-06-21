@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode"; // Corrected import
+import axios from "axios";
 
 const AuthContext = createContext();
 
@@ -9,6 +10,44 @@ export const AuthProvider = ({ children }) => {
 
   // Admin email fetched from environment variables
   const ADMIN_EMAIL = process.env.REACT_APP_ADMIN_EMAIL;
+
+  useEffect(() => {
+    const fetchAndSetUser = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const decoded = validateToken(token);
+        if (!decoded) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
+        const res = await axios.get("http://localhost:8000/api/users/refresh", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const userFromDB = res.data;
+        userFromDB.id = userFromDB._id;
+        localStorage.setItem("user", JSON.stringify(userFromDB));
+        setUser(userFromDB); // ✅ this is what your app needs
+      } catch (err) {
+        console.error("Error fetching user:", err);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAndSetUser();
+  }, []);
 
   // Validate token and check expiration
   const validateToken = (token) => {
@@ -27,28 +66,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Load user on mount
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      const decodedUser = validateToken(token);
-      setUser(decodedUser ? { ...decodedUser, token } : null);
-    } else {
-      setUser(null); // Explicitly set to null if no token
-    }
-    setLoading(false);
-  }, []);
-
   const login = async (token) => {
     try {
       const decodedUser = validateToken(token);
-      if (decodedUser) {
-        localStorage.setItem("token", token);
-        setUser({ ...decodedUser, token });
-        return true;
-      }
-      return false;
-    } catch {
+      if (!decodedUser) return false;
+
+      localStorage.setItem("token", token);
+
+      const res = await axios.get("http://localhost:8000/api/users/refresh", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const userFromDB = res.data;
+      localStorage.setItem("user", JSON.stringify(userFromDB));
+      setUser(userFromDB); // ✅ full profile from DB
+
+      return true;
+    } catch (err) {
+      console.error("Login error:", err);
       return false;
     }
   };

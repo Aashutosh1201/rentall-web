@@ -2,35 +2,38 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { useAuth } from "../context/AuthContext";
 
 const Rent = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState("");
   const [rentalDays, setRentalDays] = useState(1);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [processing, setProcessing] = useState(false);
+  const { user, loading } = useAuth();
   const [showKYCModal, setShowKYCModal] = useState(false);
   const [rentalConflict, setRentalConflict] = useState(null);
-
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
   const token = localStorage.getItem("token");
   const isCartAction = searchParams.get("action") === "cart";
 
   // Check user authentication and KYC status
   useEffect(() => {
+    if (loading) return; // ✅ Wait for context to load
+
     if (!user || !user.id) {
       navigate("/login");
       return;
     }
+
     if (user.kycStatus !== "verified") {
       setShowKYCModal(true);
     }
-  }, [user, navigate]);
+  }, [user, loading, navigate]);
 
   // Fetch product data
   useEffect(() => {
@@ -42,7 +45,7 @@ const Rent = () => {
         console.error("Error fetching product:", err);
         setError("Failed to load product");
       } finally {
-        setLoading(false);
+        setPageLoading(false);
       }
     };
 
@@ -353,7 +356,7 @@ const Rent = () => {
   }
 
   // Loading state
-  if (loading) {
+  if (pageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
