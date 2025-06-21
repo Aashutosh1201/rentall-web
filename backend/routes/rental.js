@@ -4,6 +4,7 @@
 const express = require("express");
 const router = express.Router();
 const { verifyToken } = require("../middleware/authMiddleware");
+const checkKYC = require("../middleware/checkKYC");
 const Rental = require("../models/Rental");
 const Product = require("../models/Product");
 const mongoose = require("mongoose");
@@ -17,7 +18,7 @@ function generatePurchaseOrderId() {
 }
 
 // Create rental after successful payment
-router.post("/create", verifyToken, async (req, res) => {
+router.post("/create", verifyToken, checkKYC, async (req, res) => {
   try {
     console.log("Creating rental with data:", req.body); // Debug log
     console.log("User from token:", req.user); // Debug log

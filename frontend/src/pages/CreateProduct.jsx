@@ -9,11 +9,16 @@ import {
   Info,
 } from "lucide-react";
 import MapPicker from "../components/MapPicker";
+import { useLocation } from "react-router-dom";
 import ImprovedCalendar from "../components/ui/Calendar";
+import { useAuth } from "../context/AuthContext";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 export default function CreateProduct() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [showKycModal, setShowKycModal] = useState(false);
+  const location = useLocation();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -29,6 +34,39 @@ export default function CreateProduct() {
   const [selectedDates, setSelectedDates] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [categories, setCategories] = useState([]);
+
+  if (user?.kycStatus !== "verified") {
+    return (
+      user?.kycStatus !== "verified" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
+            <h2 className="text-lg font-semibold text-red-600 mb-2">
+              KYC Verification Required
+            </h2>
+            <p className="text-gray-700 mb-4">
+              You must complete your KYC and get it approved by the admin to{" "}
+              {location.pathname.includes("create-product") ? "lend" : "borrow"}{" "}
+              items.
+            </p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => navigate("/")}
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => navigate("/kyc")}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Complete KYC
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    );
+  }
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -569,6 +607,34 @@ export default function CreateProduct() {
           </form>
         </div>
       </div>
+      {user?.kycStatus !== "verified" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
+            <h2 className="text-lg font-semibold text-red-600 mb-2">
+              KYC Verification Required
+            </h2>
+            <p className="text-gray-700 mb-4">
+              You must complete your KYC and get it approved by the admin to{" "}
+              {location.pathname.includes("create-product") ? "lend" : "borrow"}{" "}
+              items.
+            </p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => navigate("/")}
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => navigate("/kyc")}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Complete KYC
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

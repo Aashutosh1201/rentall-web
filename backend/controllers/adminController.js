@@ -1,5 +1,6 @@
 const Product = require("../models/Product");
 const KYC = require("../models/KYC");
+const User = require("../models/User"); //
 
 // Get all products
 const getAllProducts = async (req, res) => {
@@ -51,6 +52,18 @@ const updateKYCStatus = async (req, res) => {
 
     kyc.status = status;
     await kyc.save();
+
+    // Also update the associated user's KYC status
+    const user = await User.findOne({ email: kyc.email });
+    if (user) {
+      if (status === "approved") {
+        user.kycStatus = "verified";
+        user.kycVerifiedAt = new Date();
+      } else if (status === "disapproved") {
+        user.kycStatus = "rejected";
+      }
+      await user.save();
+    }
 
     // Return the status in the response to match what the frontend expects
     res.status(200).json({

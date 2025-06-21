@@ -1,17 +1,27 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate, useLocation } from "react-router-dom";
 
-export default function Cart() {
+const Cart = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [cart, setCart] = useState(null);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showKycModal, setShowKycModal] = useState(false);
   const token = localStorage.getItem("token");
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchCart();
   }, []);
+
+  useEffect(() => {
+    if (user && user.kycStatus !== "verified") {
+      setShowKycModal(true);
+    }
+  }, [user]);
 
   const fetchCart = async () => {
     setIsLoading(true);
@@ -189,6 +199,11 @@ export default function Cart() {
   };
 
   const validateAndCheckout = async () => {
+    if (!user || user.kycStatus !== "verified") {
+      setShowKycModal(true);
+      return;
+    }
+
     const validationErrors = {};
     const today = new Date().toISOString().split("T")[0];
 
@@ -260,7 +275,7 @@ export default function Cart() {
           merchant_extra: JSON.stringify({
             type: "cart_checkout",
             item_count: cart.items.length,
-            user_id: JSON.parse(localStorage.getItem("user") || "{}")?.id,
+            user_id: user?.id,
           }),
         },
         {
@@ -359,7 +374,9 @@ export default function Cart() {
                         <div className="flex justify-between">
                           <div>
                             <h3 className="text-lg font-medium text-gray-900">
-                              {item.product?.title || "Unknown Product"}
+                              {item.product?.title ||
+                                item.product?.name ||
+                                "Unknown Product"}
                             </h3>
                             {item.rentalInfo?.isRented && (
                               <p className="text-sm text-red-600">
@@ -518,53 +535,96 @@ export default function Cart() {
                 >
                   Continue Shopping
                 </button>
-                <button
-                  onClick={validateAndCheckout}
-                  className={`px-6 py-3 border border-transparent rounded-md text-base font-medium text-white transition-colors duration-200 flex items-center justify-center
-    ${
-      isLoading || cart.items.length === 0 || Object.keys(errors).length > 0
-        ? "bg-blue-300 cursor-not-allowed opacity-50"
-        : "bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-    }`}
-                  disabled={
-                    isLoading ||
-                    cart.items.length === 0 ||
-                    Object.keys(errors).length > 0
-                  }
-                >
-                  {isLoading ? (
-                    <>
-                      <svg
-                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Processing...
-                    </>
-                  ) : (
-                    "Proceed to Checkout"
-                  )}
-                </button>
+                {user?.kycStatus !== "verified" ? (
+                  <div className="mt-4 text-red-600 font-medium">
+                    Please complete your KYC to proceed to checkout.
+                  </div>
+                ) : (
+                  <button
+                    onClick={validateAndCheckout}
+                    className={`px-6 py-3 border border-transparent rounded-md text-base font-medium text-white transition-colors duration-200 flex items-center justify-center
+      ${
+        isLoading || cart.items.length === 0 || Object.keys(errors).length > 0
+          ? "bg-blue-300 cursor-not-allowed opacity-50"
+          : "bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+      }`}
+                    disabled={
+                      isLoading ||
+                      cart.items.length === 0 ||
+                      Object.keys(errors).length > 0
+                    }
+                  >
+                    {isLoading ? (
+                      <>
+                        <svg
+                          className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Processing...
+                      </>
+                    ) : (
+                      "Proceed to Checkout"
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </>
         )}
       </div>
+
+      {/* KYC Modal */}
+      {showKycModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-semibold text-red-600 mb-2">
+              KYC Verification Required
+            </h2>
+            <p className="text-gray-700 mb-4">
+              You must complete your KYC and get it approved by the admin to
+              proceed with checkout.
+            </p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => {
+                  setShowKycModal(false);
+                  navigate("/");
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowKycModal(false);
+                  navigate("/kyc");
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200"
+              >
+                Complete KYC
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default Cart;

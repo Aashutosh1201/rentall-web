@@ -1,13 +1,12 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { FaCalendarAlt, FaTag } from "react-icons/fa";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import axios from "axios";
+import { toast } from "react-toastify";
 
-export default function Rent() {
+const Rent = () => {
+  const navigate = useNavigate();
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { user, getToken } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -15,34 +14,44 @@ export default function Rent() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [showKYCModal, setShowKYCModal] = useState(false);
   const [rentalConflict, setRentalConflict] = useState(null);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const token = localStorage.getItem("token");
   const isCartAction = searchParams.get("action") === "cart";
 
+  // Check user authentication and KYC status
   useEffect(() => {
-    if (!user) {
+    if (!user || !user.id) {
       navigate("/login");
       return;
     }
+    if (user.kycStatus !== "verified") {
+      setShowKYCModal(true);
+    }
+  }, [user, navigate]);
+
+  // Fetch product data
+  useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/products/${id}`);
-        const data = await res.json();
-        if (res.ok) {
-          setProduct(data);
-        } else {
-          setError(data.message || "Failed to load product");
-        }
+        const res = await axios.get(`http://localhost:8000/api/products/${id}`);
+        setProduct(res.data);
       } catch (err) {
-        setError("Failed to load product");
         console.error("Error fetching product:", err);
+        setError("Failed to load product");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProduct();
-  }, [id, user, navigate]);
+    if (id) {
+      fetchProduct();
+    }
+  }, [id]);
 
+  // Update end date when start date or rental days change
   useEffect(() => {
     if (startDate && rentalDays) {
       const start = new Date(startDate);
@@ -52,12 +61,13 @@ export default function Rent() {
     }
   }, [startDate, rentalDays]);
 
+  // Update rental days when dates change
   useEffect(() => {
     if (endDate && startDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
       const diffTime = end - start;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // Remove the + 1
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       if (diffDays !== rentalDays && diffDays > 0) {
         setRentalDays(diffDays);
       }
@@ -69,34 +79,103 @@ export default function Rent() {
     return product.pricePerDay * rentalDays;
   };
 
-  const handleConfirmRental = async () => {
-    if (!user) {
-      navigate("/login");
-      return;
+  const handleRentalDaysChange = (days) => {
+    setRentalDays(days);
+    if (startDate) {
+      const start = new Date(startDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + days);
+      setEndDate(end.toISOString().split("T")[0]);
     }
+  };
 
-    // Clear any previous errors
-    setError("");
-
-    // Validate dates
+  const handleAddToCart = async () => {
     if (!startDate || !endDate) {
       setError("Please select both start and end dates");
+      toast.error("Please select both start and end dates");
       return;
     }
 
     const today = new Date().toISOString().split("T")[0];
     if (startDate < today) {
       setError("Start date cannot be in the past");
+      toast.error("Start date cannot be in the past");
+      return;
+    }
+
+    if (endDate < startDate) {
+      setError("End date must be after start date");
+      toast.error("End date must be after start date");
+      return;
+    }
+
+    try {
+      const res = await axios.post(
+        "http://localhost:8000/api/cart",
+        {
+          productId: id,
+          rentalDays,
+          startDate,
+          endDate,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (res.status === 200 || res.status === 201) {
+        toast.success("Product added to cart successfully!");
+        navigate("/cart");
+      }
+    } catch (err) {
+      console.error("Error adding to cart:", err);
+      const errorMessage =
+        err.response?.data?.message || "Failed to add to cart";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleConfirmRental = async () => {
+    if (!user || !user.id) {
+      navigate("/login");
+      return;
+    }
+
+    // Clear any previous errors
+    setError("");
+    setRentalConflict(null);
+
+    // Validate dates
+    if (!startDate || !endDate) {
+      const errorMsg = "Please select both start and end dates";
+      setError(errorMsg);
+      toast.error(errorMsg);
+      return;
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    if (startDate < today) {
+      const errorMsg = "Start date cannot be in the past";
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     if (new Date(startDate) >= new Date(endDate)) {
-      setError("End date must be after start date");
+      const errorMsg = "End date must be after start date";
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     if (rentalDays < 1) {
-      setError("Rental must be for at least 1 day");
+      const errorMsg = "Rental must be for at least 1 day";
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -123,29 +202,29 @@ export default function Rent() {
       sessionStorage.setItem("pendingRental", JSON.stringify(rentalData));
 
       // Check for rental conflict before proceeding
-      const conflictCheck = await fetch(
+      const conflictCheck = await axios.post(
         "http://localhost:8000/api/rentals/conflict-check",
         {
-          method: "POST",
+          productId: product._id,
+          startDate,
+          endDate,
+        },
+        {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            productId: product._id,
-            startDate,
-            endDate,
-          }),
         }
       );
 
-      const conflictResult = await conflictCheck.json();
+      if (conflictCheck.status !== 200) {
+        const reason =
+          conflictCheck.data?.message || "Rental conflict detected.";
+        const hint = conflictCheck.data?.hint || "";
+        const conflictMessage = `${reason} ${hint}`;
 
-      if (!conflictCheck.ok) {
-        const reason = conflictResult.message || "Rental conflict detected.";
-        const hint = conflictResult.hint || "";
-
-        setRentalConflict(`${reason} ${hint}`);
+        setRentalConflict(conflictMessage);
+        toast.error(conflictMessage);
         setProcessing(false);
         return;
       }
@@ -189,119 +268,91 @@ export default function Rent() {
         }),
       };
 
-      const token = getToken();
       if (!token) {
         throw new Error("No authentication token found");
       }
 
-      const response = await fetch(
+      const response = await axios.post(
         "http://localhost:8000/api/payment/khalti/initiate",
+        paymentData,
         {
-          method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(paymentData),
         }
       );
 
-      let data;
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        console.error("Failed to parse response as JSON:", parseError);
-        const text = await response.text();
-        throw new Error(`Server returned ${response.status}: ${text}`);
-      }
-
-      if (response.ok && data.payment_url) {
+      if (response.status === 200 && response.data.payment_url) {
         // Update sessionStorage with pidx
         sessionStorage.setItem(
           "pendingRental",
           JSON.stringify({
             ...rentalData,
-            pidx: data.pidx,
+            pidx: response.data.pidx,
           })
         );
 
         // Redirect to Khalti payment page
-        window.location.href = data.payment_url;
+        window.location.href = response.data.payment_url;
       } else {
-        // Handle different error status codes
-        let errorMessage = data.message || `Server returned ${response.status}`;
-
-        if (response.status === 404) {
-          errorMessage =
-            "Payment endpoint not found. Please check server configuration.";
-        } else if (response.status === 500) {
-          errorMessage = "Internal server error. Please try again later.";
-        }
-
-        throw new Error(errorMessage);
+        throw new Error(
+          response.data?.message || "Failed to initialize payment"
+        );
       }
     } catch (error) {
-      console.error("Error initiating rental:", error);
-      setError(`Failed to initiate payment: ${error.message}`);
+      console.error("Rental error:", error);
+
+      let errorMessage = "Something went wrong. Please try again.";
+
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+        if (error.response.data.hint) {
+          errorMessage += ` ${error.response.data.hint}`;
+        }
+      } else if (error.message) {
+        errorMessage = `Failed to initiate payment: ${error.message}`;
+      }
+
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setProcessing(false);
     }
   };
 
-  const handleRentalDaysChange = (days) => {
-    setRentalDays(days);
-    if (startDate) {
-      const start = new Date(startDate);
-      const end = new Date(start);
-      end.setDate(start.getDate() + days - 1);
-      setEndDate(end.toISOString().split("T")[0]);
-    }
-  };
+  // KYC Modal
+  if (showKYCModal) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-xl shadow-xl max-w-md w-full mx-4">
+          <h2 className="text-xl font-semibold text-red-600 mb-4">
+            KYC Verification Required
+          </h2>
+          <p className="text-gray-700 mb-6">
+            You must complete your KYC and get it approved by the admin before
+            you can rent products.
+          </p>
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={() => navigate("/")}
+              className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => navigate("/kyc")}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+            >
+              Complete KYC
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const handleAddToCart = async () => {
-    if (!startDate || !endDate) {
-      setError("Please select both start and end dates");
-      return;
-    }
-
-    const today = new Date().toISOString().split("T")[0];
-    if (startDate < today) {
-      setError("Start date cannot be in the past");
-      return;
-    }
-
-    if (endDate < startDate) {
-      setError("End date must be after start date");
-      return;
-    }
-
-    try {
-      const res = await fetch("http://localhost:8000/api/cart", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
-        },
-        body: JSON.stringify({
-          productId: id,
-          rentalDays,
-          startDate,
-          endDate,
-        }),
-      });
-
-      if (res.ok) {
-        navigate("/cart");
-      } else {
-        const data = await res.json();
-        setError(data.message || "Failed to add to cart");
-      }
-    } catch (err) {
-      setError("Failed to add to cart");
-      console.error("Error adding to cart:", err);
-    }
-  };
-
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -310,7 +361,8 @@ export default function Rent() {
     );
   }
 
-  if (error) {
+  // Error state
+  if (error && !product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center py-10 text-red-500 bg-red-50 p-8 rounded-lg shadow-md">
@@ -321,7 +373,7 @@ export default function Rent() {
               setError("");
               window.location.reload();
             }}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
             Try Again
           </button>
@@ -330,6 +382,7 @@ export default function Rent() {
     );
   }
 
+  // Product not found
   if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -338,6 +391,12 @@ export default function Rent() {
           <p className="text-gray-600">
             The product you're trying to rent doesn't exist or has been removed.
           </p>
+          <button
+            onClick={() => navigate("/categories")}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            Browse Products
+          </button>
         </div>
       </div>
     );
@@ -345,6 +404,7 @@ export default function Rent() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
+      {/* Rental Conflict Alert */}
       {rentalConflict && (
         <div
           className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 max-w-2xl mx-auto mt-4"
@@ -354,7 +414,7 @@ export default function Rent() {
           <span className="block sm:inline">{rentalConflict}</span>
           <button
             onClick={() => setRentalConflict(null)}
-            className="absolute top-0 bottom-0 right-0 px-4 py-3 text-xl leading-none"
+            className="absolute top-0 bottom-0 right-0 px-4 py-3 text-xl leading-none hover:text-red-900"
           >
             ×
           </button>
@@ -385,16 +445,15 @@ export default function Rent() {
                     alt={product.title}
                     className="w-24 h-24 object-cover rounded-lg"
                     onError={(e) => {
-                      if (e.target.src !== "/no-image.jpg") {
-                        e.target.src = "/no-image.jpg";
-                      } else {
-                        e.target.src =
-                          "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Im0xNSA5LTYgNi02LTYiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+";
-                      }
+                      e.target.src =
+                        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Im0xNSA5LTYgNi02LTYiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+";
                     }}
                   />
                   <div>
-                    <h3 className="font-medium">{product.title}</h3>
+                    <h3 className="font-medium text-lg">{product.title}</h3>
+                    <p className="text-gray-600 text-sm mb-2">
+                      {product.description}
+                    </p>
                     <p className="text-green-600 font-semibold">
                       Rs. {product.pricePerDay} / day
                     </p>
@@ -415,7 +474,7 @@ export default function Rent() {
                     onChange={(e) =>
                       handleRentalDaysChange(parseInt(e.target.value) || 1)
                     }
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
 
@@ -428,7 +487,7 @@ export default function Rent() {
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     min={new Date().toISOString().split("T")[0]}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
 
@@ -441,7 +500,7 @@ export default function Rent() {
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     min={startDate || new Date().toISOString().split("T")[0]}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
               </div>
@@ -461,9 +520,17 @@ export default function Rent() {
                 {isCartAction ? (
                   <button
                     onClick={handleAddToCart}
-                    className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                    disabled={processing}
+                    className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transform transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                   >
-                    Add to Cart
+                    {processing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                        <span>Adding to Cart...</span>
+                      </>
+                    ) : (
+                      <span>Add to Cart</span>
+                    )}
                   </button>
                 ) : (
                   <button
@@ -490,6 +557,7 @@ export default function Rent() {
                     )}
                   </button>
                 )}
+
                 <button
                   onClick={() => navigate(-1)}
                   disabled={processing}
@@ -528,4 +596,6 @@ export default function Rent() {
       </div>
     </div>
   );
-}
+};
+
+export default Rent;

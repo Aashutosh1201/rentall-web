@@ -1,5 +1,6 @@
 const express = require("express");
 const { verifyToken } = require("../middleware/authMiddleware");
+const checkKYC = require("../middleware/checkKYC");
 const {
   addToCart,
   getCart,
@@ -12,7 +13,7 @@ const {
 const router = express.Router();
 
 router.get("/", verifyToken, getCart);
-router.post("/add", verifyToken, addToCart);
+router.post("/add", verifyToken, checkKYC, addToCart);
 router.delete("/:productId", verifyToken, removeFromCart);
 router.delete("/clear", verifyToken, clearCart);
 router.put("/:productId", verifyToken, updateCartItem);

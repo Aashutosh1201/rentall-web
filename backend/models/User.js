@@ -76,6 +76,19 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false, // User is active only when both email and phone are verified
     },
+    kycStatus: {
+      type: String,
+      enum: ["not_submitted", "pending", "verified", "rejected"],
+      default: "not_submitted",
+    },
+
+    kycSubmittedAt: {
+      type: Date,
+    },
+
+    kycVerifiedAt: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );

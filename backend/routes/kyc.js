@@ -79,10 +79,14 @@ router.post(
 
       await newKYC.save();
 
-      // Optionally update phone if needed
+      // ✅ Update user KYC status and phone
       const user = await User.findOne({ email });
-      if (user && user.phone === "not provided") {
-        user.phone = phone;
+      if (user) {
+        if (user.phone === "not provided") {
+          user.phone = phone;
+        }
+        user.kycStatus = "pending";
+        user.kycSubmittedAt = new Date();
         await user.save();
       }
 
