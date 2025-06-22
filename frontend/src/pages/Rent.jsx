@@ -26,6 +26,8 @@ const Rent = () => {
     if (loading) return; // ✅ Wait for context to load
 
     if (!user || !user.id) {
+      console.log("🔍 Rent.jsx user:", user);
+      console.log("🔍 token:", localStorage.getItem("token"));
       navigate("/login");
       return;
     }
