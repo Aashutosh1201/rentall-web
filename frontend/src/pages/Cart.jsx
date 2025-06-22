@@ -19,6 +19,28 @@ const Cart = () => {
   }, []);
 
   useEffect(() => {
+    if (!cart) return;
+
+    const updatedCart = { ...cart };
+
+    updatedCart.items = updatedCart.items.map((item) => {
+      const start = new Date(item.startDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + item.rentalDays);
+
+      return {
+        ...item,
+        endDate: end.toISOString().split("T")[0],
+      };
+    });
+
+    setCart(updatedCart);
+  }, [
+    cart?.items.map((item) => item.startDate).join(","),
+    cart?.items.map((item) => item.rentalDays).join(","),
+  ]);
+
+  useEffect(() => {
     if (user && user.kycStatus !== "verified") {
       setShowKycModal(true);
     }
@@ -81,9 +103,8 @@ const Cart = () => {
   };
 
   const updateItem = async (index, field, value) => {
-    // Clear previous errors
+    // Only clear general errors, not rental conflicts (those are only for checkout)
     setError("");
-    setRentalConflict(null);
 
     const updatedItems = [...cart.items];
     const item = updatedItems[index];
@@ -153,9 +174,9 @@ const Cart = () => {
       console.error("Error response:", err.response?.data);
       console.error("Error status:", err.response?.status);
 
-      // Show user-friendly error similar to Rent component
+      // Show user-friendly error but don't disable checkout
       const resData = err.response?.data;
-      let errorMessage = "Something went wrong. Please try again.";
+      let errorMessage = "Failed to update item. Please try again.";
 
       if (resData?.message) {
         errorMessage = resData.message;
@@ -164,13 +185,12 @@ const Cart = () => {
         }
       }
 
-      // Check if it's a rental conflict
+      // REMOVED: No longer show rental conflicts here - only show non-rental errors
       if (
-        (resData?.message && resData.message.includes("conflict")) ||
-        (resData?.message && resData.message.includes("rented"))
+        !errorMessage.includes("conflict") &&
+        !errorMessage.includes("rented") &&
+        !errorMessage.includes("already rented")
       ) {
-        setRentalConflict(errorMessage);
-      } else {
         setError(errorMessage);
       }
 
@@ -211,7 +231,7 @@ const Cart = () => {
       return;
     }
 
-    // Clear previous errors
+    // Clear previous errors and conflicts
     setError("");
     setRentalConflict(null);
 
@@ -241,30 +261,75 @@ const Cart = () => {
       return;
     }
 
-    const totalAmount = calculateTotal();
-
-    // Store data in the EXACT format expected by PaymentCallback
-    sessionStorage.setItem(
-      "pendingCartRental",
-      JSON.stringify({
-        items: cart.items.map((item) => ({
-          productId: item.product._id,
-          startDate: item.startDate,
-          endDate: item.endDate,
-          rentalDays: item.rentalDays,
-          total:
-            (item.pricePerDay || item.product?.pricePerDay || 0) *
-            item.rentalDays,
-          pricePerDay: item.pricePerDay || item.product?.pricePerDay || 0,
-          productName: item.product.title || item.product.name, // For reference
-        })),
-        totalAmount,
-        timestamp: Date.now(), // For debugging
-      })
-    );
+    setIsLoading(true);
 
     try {
-      setIsLoading(true);
+      // Check for rental conflicts before proceeding (like in Rent.jsx)
+      const conflictChecks = await Promise.all(
+        cart.items.map((item) =>
+          axios
+            .post(
+              "http://localhost:8000/api/rentals/conflict-check",
+              {
+                productId: item.product._id,
+                startDate: item.startDate,
+                endDate: item.endDate,
+              },
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            )
+            .then((res) => ({ success: true, item }))
+            .catch((err) => ({
+              success: false,
+              item,
+              error: err.response?.data?.message || "Rental conflict detected",
+              hint: err.response?.data?.hint || "",
+            }))
+        )
+      );
+
+      // Check if any conflicts exist
+      const conflicts = conflictChecks.filter((check) => !check.success);
+      if (conflicts.length > 0) {
+        const conflictMessages = conflicts.map((conflict) => {
+          const productName =
+            conflict.item.product?.title ||
+            conflict.item.product?.name ||
+            "Unknown Product";
+          const message = `⚠️ ${productName}: ${conflict.error}`;
+          return conflict.hint ? `${message} ${conflict.hint}` : message;
+        });
+
+        setRentalConflict(conflictMessages.join(" | "));
+        setIsLoading(false);
+        return;
+      }
+
+      const totalAmount = calculateTotal();
+
+      // Store data in the EXACT format expected by PaymentCallback
+      sessionStorage.setItem(
+        "pendingCartRental",
+        JSON.stringify({
+          items: cart.items.map((item) => ({
+            productId: item.product._id,
+            startDate: item.startDate,
+            endDate: item.endDate,
+            rentalDays: item.rentalDays,
+            total:
+              (item.pricePerDay || item.product?.pricePerDay || 0) *
+              item.rentalDays,
+            pricePerDay: item.pricePerDay || item.product?.pricePerDay || 0,
+            productName: item.product.title || item.product.name, // For reference
+          })),
+          totalAmount,
+          timestamp: Date.now(), // For debugging
+        })
+      );
 
       // Optional: Use the prepareCartForCheckout endpoint for validation
       const cartValidation = await axios.get(
@@ -321,10 +386,11 @@ const Cart = () => {
         errorMessage = `Failed to initiate payment: ${err.message}`;
       }
 
-      // Check if it's a rental conflict
+      // Only show rental conflicts as rentalConflict, not as general error
       if (
         errorMessage.includes("conflict") ||
-        errorMessage.includes("rented")
+        errorMessage.includes("rented") ||
+        errorMessage.includes("already rented")
       ) {
         setRentalConflict(errorMessage);
       } else {
@@ -349,14 +415,35 @@ const Cart = () => {
           Your Shopping Cart
         </h2>
 
-        {/* Rental Conflict Alert - Similar to Rent component */}
+        {/* Rental Conflict Alert - ONLY shows detailed info after checkout attempt */}
         {rentalConflict && (
-          <div
-            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
-            role="alert"
-          >
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
             <strong className="font-bold">⚠️ Rental Not Allowed: </strong>
             <span className="block sm:inline">{rentalConflict}</span>
+
+            {/* Show availability info from rentalInfo */}
+            {cart.items
+              .filter((item) => item.rentalInfo?.isRented)
+              .map((item) => (
+                <div
+                  key={item.product._id}
+                  className="mt-2 text-sm bg-red-200 p-2 rounded"
+                >
+                  <strong>{item.product?.title || item.product?.name}</strong>{" "}
+                  is rented until{" "}
+                  <strong>
+                    {new Date(item.rentalInfo.rentedUntil).toLocaleDateString()}
+                  </strong>
+                  . Available from{" "}
+                  <strong>
+                    {new Date(
+                      item.rentalInfo.availableFrom
+                    ).toLocaleDateString()}
+                  </strong>
+                  .
+                </div>
+              ))}
+
             <button
               onClick={() => setRentalConflict(null)}
               className="absolute top-0 bottom-0 right-0 px-4 py-3 text-xl leading-none hover:text-red-900"
@@ -366,7 +453,7 @@ const Cart = () => {
           </div>
         )}
 
-        {/* General error display */}
+        {/* General error display - Only for non-rental errors */}
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
             <p className="text-red-600">{error}</p>
@@ -428,13 +515,13 @@ const Cart = () => {
                                 "Unknown Product"}
                             </h3>
 
-                            {/* Rental status display like in Rent.jsx */}
+                            {/* Rental status display - but only as info */}
                             {item.rentalInfo?.isRented && (
-                              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                                <p className="text-sm text-red-700 font-medium">
-                                  ⚠️ Currently Rented
+                              <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <p className="text-sm text-yellow-700 font-medium">
+                                  ℹ️ Currently Rented
                                 </p>
-                                <p className="text-sm text-red-600 mt-1">
+                                <p className="text-sm text-yellow-600 mt-1">
                                   This item is rented until{" "}
                                   <strong>
                                     {new Date(
@@ -592,16 +679,11 @@ const Cart = () => {
                     onClick={validateAndCheckout}
                     className={`px-6 py-3 border border-transparent rounded-md text-base font-medium text-white transition-colors duration-200 flex items-center justify-center
       ${
-        isLoading || cart.items.length === 0 || error || rentalConflict
+        isLoading || cart.items.length === 0
           ? "bg-blue-300 cursor-not-allowed opacity-50"
           : "bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
       }`}
-                    disabled={
-                      isLoading ||
-                      cart.items.length === 0 ||
-                      error ||
-                      rentalConflict
-                    }
+                    disabled={isLoading || cart.items.length === 0}
                   >
                     {isLoading ? (
                       <>
