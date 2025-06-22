@@ -7,6 +7,8 @@ import {
   Tag,
   Package,
   Info,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import MapPicker from "../components/MapPicker";
 import { useLocation } from "react-router-dom";
@@ -17,7 +19,6 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 export default function CreateProduct() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [showKycModal, setShowKycModal] = useState(false);
   const location = useLocation();
   const [formData, setFormData] = useState({
     name: "",
@@ -35,39 +36,7 @@ export default function CreateProduct() {
   const [isDragging, setIsDragging] = useState(false);
   const [categories, setCategories] = useState([]);
 
-  if (user?.kycStatus !== "verified") {
-    return (
-      user?.kycStatus !== "verified" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
-            <h2 className="text-lg font-semibold text-red-600 mb-2">
-              KYC Verification Required
-            </h2>
-            <p className="text-gray-700 mb-4">
-              You must complete your KYC and get it approved by the admin to{" "}
-              {location.pathname.includes("create-product") ? "lend" : "borrow"}{" "}
-              items.
-            </p>
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => navigate("/")}
-                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => navigate("/kyc")}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Complete KYC
-              </button>
-            </div>
-          </div>
-        </div>
-      )
-    );
-  }
-
+  // ✅ FIXED: Move useEffect to top level, before any conditional returns
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -86,6 +55,130 @@ export default function CreateProduct() {
 
     fetchCategories();
   }, []);
+
+  // ✅ UPDATED: Different modals based on KYC status
+  if (user?.kycStatus !== "verified") {
+    // Case 1: KYC not filled at all (user has no kycStatus or it's undefined/null)
+    if (!user?.kycStatus) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
+            <div className="flex items-center mb-4">
+              <AlertCircle className="h-6 w-6 text-blue-600 mr-2" />
+              <h2 className="text-lg font-semibold text-blue-600">
+                KYC Required
+              </h2>
+            </div>
+            <p className="text-gray-700 mb-4">
+              You need to complete your KYC verification to{" "}
+              {location.pathname.includes("create-product") ? "lend" : "borrow"}{" "}
+              items. This helps us maintain a safe and trusted community.
+            </p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => navigate("/")}
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => navigate("/kyc-form")}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Fill KYC
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Case 2: KYC is pending/submitted but not yet verified
+    if (user?.kycStatus === "pending" || user?.kycStatus === "submitted") {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
+            <div className="flex items-center mb-4">
+              <Clock className="h-6 w-6 text-yellow-600 mr-2" />
+              <h2 className="text-lg font-semibold text-yellow-600">
+                KYC Under Review
+              </h2>
+            </div>
+            <p className="text-gray-700 mb-4">
+              Your KYC is currently being reviewed by our admin team. This
+              process usually takes 24-48 hours. You'll be notified once it's
+              approved and you can start{" "}
+              {location.pathname.includes("create-product")
+                ? "lending"
+                : "borrowing"}{" "}
+              items.
+            </p>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-yellow-800">
+                <strong>What's next?</strong> We'll send you an email
+                confirmation once your KYC is approved. You can also check your
+                status in your profile.
+              </p>
+            </div>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => navigate("/")}
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition-colors"
+              >
+                Go to Home
+              </button>
+              <button
+                onClick={() => navigate("/profile")}
+                className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+              >
+                Check Status
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Case 3: KYC was rejected
+    if (user?.kycStatus === "rejected") {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
+            <div className="flex items-center mb-4">
+              <AlertCircle className="h-6 w-6 text-red-600 mr-2" />
+              <h2 className="text-lg font-semibold text-red-600">
+                KYC Verification Failed
+              </h2>
+            </div>
+            <p className="text-gray-700 mb-4">
+              Your KYC verification was not approved. Please check your email
+              for details about what needs to be corrected, or contact our
+              support team.
+            </p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-red-800">
+                You can resubmit your KYC with the correct information.
+              </p>
+            </div>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => navigate("/")}
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => navigate("/kyc-form")}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              >
+                Retry KYC
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
 
   const handleChange = (e) => {
     const { name, value, type, files } = e.target;
@@ -607,34 +700,6 @@ export default function CreateProduct() {
           </form>
         </div>
       </div>
-      {user?.kycStatus !== "verified" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
-            <h2 className="text-lg font-semibold text-red-600 mb-2">
-              KYC Verification Required
-            </h2>
-            <p className="text-gray-700 mb-4">
-              You must complete your KYC and get it approved by the admin to{" "}
-              {location.pathname.includes("create-product") ? "lend" : "borrow"}{" "}
-              items.
-            </p>
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => navigate("/")}
-                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => navigate("/kyc")}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Complete KYC
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

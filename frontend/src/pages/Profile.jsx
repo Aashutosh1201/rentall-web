@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const Profile = () => {
-  const { user, getToken, setUser } = useAuth();
+  const { user, getToken, setUser, authenticated, loading } = useAuth();
   const navigate = useNavigate();
   const [kyc, setKyc] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -20,12 +20,38 @@ const Profile = () => {
     profilePhoto: "",
   });
 
-  const token = getToken();
   const [errors, setErrors] = useState({});
+
+  // Single authentication check - wait for loading to complete
+  useEffect(() => {
+    console.log("🐛 Profile Auth Check:", {
+      loading,
+      authenticated,
+      user: user?.id,
+    });
+
+    // Wait for auth to finish loading
+    if (loading) {
+      console.log("🐛 Auth still loading, waiting...");
+      return;
+    }
+
+    // If not authenticated after loading is complete, redirect
+    if (!authenticated) {
+      console.log("🐛 Not authenticated, redirecting to login");
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    console.log("🐛 User is authenticated, staying on profile");
+  }, [loading, authenticated, navigate]);
 
   // Fetch current user profile data
   const fetchUserProfile = async () => {
+    const token = getToken();
     if (!token || profileFetched) return;
+
+    console.log("🐛 Fetching user profile...");
 
     try {
       const response = await fetch("http://localhost:8000/api/auth/profile", {
@@ -37,6 +63,7 @@ const Profile = () => {
 
       if (response.ok) {
         const userData = await response.json();
+        console.log("🐛 Profile data fetched:", userData.user?.email);
 
         setFormData({
           fullName: userData.user?.fullName || "",
@@ -46,53 +73,53 @@ const Profile = () => {
           profilePhoto: userData.user?.profilePhoto || "",
         });
 
+        // Update user context if needed
         if (JSON.stringify(user) !== JSON.stringify(userData.user)) {
           setUser(userData.user);
         }
 
         setProfileFetched(true);
+      } else {
+        console.error("🐛 Failed to fetch profile:", response.status);
+        if (response.status === 401) {
+          // Token might be invalid, redirect to login
+          navigate("/login", { replace: true });
+        }
       }
     } catch (err) {
-      console.error("Error fetching profile:", err);
+      console.error("🐛 Error fetching profile:", err);
     }
   };
 
-  // Auth test and profile fetch effect
+  // Initialize profile data when authentication is ready
   useEffect(() => {
-    const testAuth = async () => {
-      if (!token) return;
-
-      try {
-        const response = await fetch("http://localhost:8000/api/auth/test", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-
-        await response.json();
-      } catch (err) {
-        console.error("Auth test error:", err);
-      }
-    };
-
-    if (token && !profileFetched) {
-      testAuth();
-      fetchUserProfile();
-    }
-  }, [token]);
-
-  // User authentication check
-  useEffect(() => {
-    if (!user) {
-      navigate("/login");
+    // Only proceed if auth is loaded and user is authenticated
+    if (loading || !authenticated || !user) {
       return;
     }
-  }, [user, navigate]);
 
-  // KYC data fetching
+    console.log("🐛 Auth ready, initializing profile data");
+
+    // Set initial form data from user context
+    if (user && !profileFetched) {
+      setFormData({
+        fullName: user.fullName || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        address: user.address || "",
+        profilePhoto: user.profilePhoto || "",
+      });
+    }
+
+    // Fetch fresh profile data from server
+    fetchUserProfile();
+  }, [loading, authenticated, user]);
+
+  // KYC data fetching - only after user is confirmed
   useEffect(() => {
-    if (!user) return;
+    if (loading || !authenticated || !user?.email || kyc) {
+      return;
+    }
 
     const fetchKYC = async () => {
       setIsLoading(true);
@@ -128,10 +155,8 @@ const Profile = () => {
       }
     };
 
-    if (user?.email && !kyc) {
-      fetchKYC();
-    }
-  }, [user?.email]);
+    fetchKYC();
+  }, [loading, authenticated, user?.email, kyc]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -170,6 +195,13 @@ const Profile = () => {
       return;
     }
 
+    const token = getToken();
+    if (!token) {
+      toast.error("Please log in again");
+      navigate("/login");
+      return;
+    }
+
     setIsSaving(true);
     try {
       const res = await fetch(
@@ -190,10 +222,7 @@ const Profile = () => {
         toast.success("Profile updated successfully!");
 
         if (result.user) {
-          const updatedUser = { ...result.user, token };
-          localStorage.setItem("user", JSON.stringify(updatedUser));
-          setUser(updatedUser);
-
+          setUser(result.user);
           setFormData({
             fullName: result.user.fullName || "",
             email: result.user.email || "",
@@ -263,43 +292,32 @@ const Profile = () => {
     }
   };
 
-  const updateProfilePhotoOnServer = async (photoUrl) => {
-    try {
-      const res = await fetch(
-        "http://localhost:8000/api/auth/update-profile-photo",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ profilePhoto: photoUrl }),
-        }
-      );
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to update profile photo");
-      }
-
-      const result = await res.json();
-      return result;
-    } catch (err) {
-      console.error("Error updating profile photo on server:", err);
-      throw err;
-    }
-  };
-
-  if (isLoading) {
+  // Show loading state while authentication is being processed
+  if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <span className="ml-3 text-gray-600">Loading...</span>
       </div>
     );
   }
 
+  // Don't render anything if not authenticated (will redirect)
+  if (!authenticated || !user) {
+    return null;
+  }
+
   return (
     <div className="max-w-3xl mx-auto my-8 p-6 bg-white rounded-xl shadow-md">
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-2 text-center">Loading profile data...</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row gap-8">
         {/* Profile Picture Section */}
         <div className="md:w-1/3 flex flex-col items-center">
@@ -338,7 +356,7 @@ const Profile = () => {
             />
             <label
               htmlFor="uploadProfilePhoto"
-              className="absolute -bottom-2 -right-2 bg-blue-500 text-white rounded-full p-2 shadow-lg cursor-pointer"
+              className="absolute -bottom-2 -right-2 bg-blue-500 text-white rounded-full p-2 shadow-lg cursor-pointer hover:bg-blue-600 transition-colors"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

@@ -17,7 +17,7 @@ import PaymentCallback from "./components/PaymentCallback";
 import RentalHistory from "./pages/RentalHistory";
 import VerificationPage from "./pages/VerificationPage";
 import EmailVerifyHandler from "./components/EmailVerifyHandler";
-import RequestProduct from "./pages/RequestProduct"; 
+import RequestProduct from "./pages/RequestProduct";
 import RequestsPage from "./pages/RequestsPage";
 import RequestDetail from "./pages/RequestDetail";
 import Profile from "./pages/Profile";
@@ -124,6 +124,7 @@ function App() {
               </PublicLayout>
             }
           />
+
           <Route
             path="/product/:id"
             element={
@@ -201,9 +202,6 @@ function App() {
               </PublicLayout>
             }
           />
-
-
-
 
           {/* Authentication routes */}
           <Route

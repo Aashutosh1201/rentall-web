@@ -25,33 +25,52 @@ export default function ProductDetails() {
   const [deletingReview, setDeletingReview] = useState(null);
   const [kycSelfie, setKycSelfie] = useState(null);
   const [reviewUserKycData, setReviewUserKycData] = useState({});
+
+  // KYC Modal States
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [kycStatus, setKycStatus] = useState(null); // 'not_filled', 'pending', 'approved'
+
   const userToken = localStorage.getItem("token");
 
-  // Fetch current user's KYC data (same as Navbar)
+  // Fetch current user's KYC data and status
   useEffect(() => {
     if (!user?.email) return;
 
-    const fetchKYCSelfie = async () => {
+    const fetchKYCStatus = async () => {
       try {
         const res = await fetch(
           `http://localhost:8000/api/kyc/status/${user.email}`
         );
         const data = await res.json();
+
         if (data.exists) {
           const kycDetails = await fetch(
             `http://localhost:8000/api/kyc/detail/${user.email}`
           );
           const detail = await kycDetails.json();
+
           if (detail.kyc?.selfiePath) {
             setKycSelfie(detail.kyc.selfiePath);
           }
+
+          // Check KYC approval status
+          if (detail.kyc?.status === "approved") {
+            setKycStatus("approved");
+          } else if (detail.kyc?.status === "pending") {
+            setKycStatus("pending");
+          } else {
+            setKycStatus("not_filled");
+          }
+        } else {
+          setKycStatus("not_filled");
         }
       } catch (err) {
-        console.error("Failed to fetch KYC selfie:", err);
+        console.error("Failed to fetch KYC status:", err);
+        setKycStatus("not_filled");
       }
     };
 
-    fetchKYCSelfie();
+    fetchKYCStatus();
   }, [user?.email]);
 
   // Fetch KYC data for review users
@@ -233,12 +252,26 @@ export default function ProductDetails() {
 
   const handleRentClick = () => {
     if (authLoading) return;
+
     if (!user) {
       localStorage.setItem("redirectAfterLogin", `/rent/${id}`);
       navigate("/login");
-    } else {
-      navigate(`/rent/${id}`);
+      return;
     }
+
+    // Check KYC status before allowing rental
+    if (kycStatus === "approved") {
+      navigate(`/rent/${id}`);
+    } else {
+      setShowKycModal(true);
+    }
+  };
+
+  const handleKycModalAction = () => {
+    if (kycStatus === "not_filled") {
+      navigate("/kyc-form");
+    }
+    setShowKycModal(false);
   };
 
   const renderStars = (ratingValue) => {
@@ -371,6 +404,71 @@ export default function ProductDetails() {
         className={`${size} rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm`}
       >
         {firstLetter}
+      </div>
+    );
+  };
+
+  // KYC Modal Component
+  const KycModal = () => {
+    if (!showKycModal) return null;
+
+    const getModalContent = () => {
+      switch (kycStatus) {
+        case "not_filled":
+          return {
+            title: "KYC Verification Required",
+            message:
+              "You must complete your KYC verification before you can rent products.",
+            buttonText: "Complete KYC",
+            buttonAction: handleKycModalAction,
+            buttonColor: "bg-blue-600 hover:bg-blue-700",
+          };
+        case "pending":
+          return {
+            title: "KYC Under Review",
+            message:
+              "Your KYC is currently being reviewed by our admin. Please wait for approval before renting products.",
+            buttonText: "Understood",
+            buttonAction: () => setShowKycModal(false),
+            buttonColor: "bg-gray-600 hover:bg-gray-700",
+          };
+        default:
+          return {
+            title: "KYC Required",
+            message: "Please complete your KYC verification.",
+            buttonText: "OK",
+            buttonAction: () => setShowKycModal(false),
+            buttonColor: "bg-blue-600 hover:bg-blue-700",
+          };
+      }
+    };
+
+    const modalContent = getModalContent();
+
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+        <div className="relative mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div className="mt-3 text-center">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              {modalContent.title}
+            </h3>
+            <p className="text-sm text-gray-500 mb-6">{modalContent.message}</p>
+            <div className="flex justify-center space-x-3">
+              <button
+                onClick={() => setShowKycModal(false)}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={modalContent.buttonAction}
+                className={`px-4 py-2 text-white rounded-md transition-colors ${modalContent.buttonColor}`}
+              >
+                {modalContent.buttonText}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -608,6 +706,10 @@ export default function ProductDetails() {
           </div>
         </div>
       </div>
+
+      {/* KYC Modal */}
+      <KycModal />
+
       <ToastContainer
         position="top-right"
         autoClose={4000}

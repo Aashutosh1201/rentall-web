@@ -130,16 +130,7 @@ export const AuthProvider = ({ children }) => {
 
   // Check if user is authenticated
   const isAuthenticated = () => {
-    const token = localStorage.getItem("token");
-    if (!token) return false;
-
-    try {
-      const decoded = jwtDecode(token);
-      const currentTime = Date.now() / 1000;
-      return decoded.exp > currentTime && !!user?.id; // ✅ Also check if user exists
-    } catch {
-      return false;
-    }
+    return authenticated;
   };
 
   // Check if the user is admin based on email

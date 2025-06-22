@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import LoadingSpinner from "./LoadingSpinner";
 
 const PrivateRoute = ({ children }) => {
-  const { user, loading, authenticated, isAuthenticated } = useAuth();
+  const { user, loading, authenticated } = useAuth();
 
   // ✅ Wait for loading to finish
   if (loading) {
@@ -11,7 +11,7 @@ const PrivateRoute = ({ children }) => {
   }
 
   // ✅ Ensure both token and user are ready
-  if (!authenticated || !user.id) {
+  if (!authenticated) {
     return <Navigate to="/login" replace />;
   }
 
