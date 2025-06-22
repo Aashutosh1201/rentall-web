@@ -12,8 +12,15 @@ const Rent = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState("");
   const [rentalDays, setRentalDays] = useState(1);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+
+  // Set default dates: today and tomorrow
+  const today = new Date().toISOString().split("T")[0];
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowString = tomorrow.toISOString().split("T")[0];
+
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(tomorrowString);
   const [processing, setProcessing] = useState(false);
   const { user, loading } = useAuth();
   const [showKYCModal, setShowKYCModal] = useState(false);
@@ -101,8 +108,8 @@ const Rent = () => {
       return;
     }
 
-    const today = new Date().toISOString().split("T")[0];
-    if (startDate < today) {
+    const todayDate = new Date().toISOString().split("T")[0];
+    if (startDate < todayDate) {
       setError("Start date cannot be in the past");
       toast.error("Start date cannot be in the past");
       return;
@@ -162,8 +169,8 @@ const Rent = () => {
       return;
     }
 
-    const today = new Date().toISOString().split("T")[0];
-    if (startDate < today) {
+    const todayDate = new Date().toISOString().split("T")[0];
+    if (startDate < todayDate) {
       const errorMsg = "Start date cannot be in the past";
       setError(errorMsg);
       toast.error(errorMsg);

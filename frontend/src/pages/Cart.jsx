@@ -8,9 +8,10 @@ const Cart = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [cart, setCart] = useState(null);
-  const [errors, setErrors] = useState({});
+  const [error, setError] = useState(""); // Single error state like Rent component
   const [isLoading, setIsLoading] = useState(false);
   const [showKycModal, setShowKycModal] = useState(false);
+  const [rentalConflict, setRentalConflict] = useState(null); // Add rental conflict state
   const token = localStorage.getItem("token");
 
   useEffect(() => {
@@ -31,11 +32,14 @@ const Cart = () => {
       });
 
       const today = new Date().toISOString().split("T")[0];
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowString = tomorrow.toISOString().split("T")[0];
 
       const updated = cartRes.data.items.map((item) => ({
         ...item,
         startDate: item.startDate?.split("T")[0] || today,
-        endDate: item.endDate?.split("T")[0] || today,
+        endDate: item.endDate?.split("T")[0] || tomorrowString,
         rentalDays: item.rentalDays || 1,
         pricePerDay: item.pricePerDay || item.product?.pricePerDay || 0,
       }));
@@ -70,20 +74,24 @@ const Cart = () => {
       setCart({ ...cartRes.data, items: updatedWithRentalInfo });
     } catch (err) {
       console.error("Error fetching cart:", err);
-      setErrors({ general: "Failed to load cart" });
+      setError("Failed to load cart");
     } finally {
       setIsLoading(false);
     }
   };
 
   const updateItem = async (index, field, value) => {
+    // Clear previous errors
+    setError("");
+    setRentalConflict(null);
+
     const updatedItems = [...cart.items];
     const item = updatedItems[index];
 
     // Validate that we have a valid product ID
     if (!item.product || !item.product._id) {
       console.error("Invalid product ID for cart item:", item);
-      setErrors({ [index]: "Invalid item - please refresh the page" });
+      setError("Invalid item - please refresh the page");
       return;
     }
 
@@ -112,13 +120,6 @@ const Cart = () => {
 
     // Update local state immediately for better UX
     setCart({ ...cart, items: updatedItems });
-
-    // Clear any existing errors for this item
-    if (errors[index]) {
-      const newErrors = { ...errors };
-      delete newErrors[index];
-      setErrors(newErrors);
-    }
 
     // Send update to backend (optional - for persistence)
     try {
@@ -152,20 +153,26 @@ const Cart = () => {
       console.error("Error response:", err.response?.data);
       console.error("Error status:", err.response?.status);
 
-      // Show user-friendly error
+      // Show user-friendly error similar to Rent component
       const resData = err.response?.data;
-      let msg = "Failed to update cart item.";
+      let errorMessage = "Something went wrong. Please try again.";
 
       if (resData?.message) {
-        msg = resData.message;
+        errorMessage = resData.message;
         if (resData.hint) {
-          msg += `\n${resData.hint}`;
+          errorMessage += ` ${resData.hint}`;
         }
       }
 
-      setErrors({
-        [index]: msg,
-      });
+      // Check if it's a rental conflict
+      if (
+        (resData?.message && resData.message.includes("conflict")) ||
+        (resData?.message && resData.message.includes("rented"))
+      ) {
+        setRentalConflict(errorMessage);
+      } else {
+        setError(errorMessage);
+      }
 
       // Optionally revert the local state change
       // fetchCart(); // Uncomment this if you want to revert on error
@@ -186,7 +193,7 @@ const Cart = () => {
       .then((res) => setCart(res.data))
       .catch((err) => {
         console.error("Error removing from cart:", err);
-        setErrors({ general: "Failed to remove item from cart" });
+        setError("Failed to remove item from cart");
       })
       .finally(() => setIsLoading(false));
   };
@@ -204,26 +211,33 @@ const Cart = () => {
       return;
     }
 
-    const validationErrors = {};
+    // Clear previous errors
+    setError("");
+    setRentalConflict(null);
+
+    // Validate dates
     const today = new Date().toISOString().split("T")[0];
+    let hasValidationError = false;
 
-    cart.items.forEach((item, i) => {
+    for (let i = 0; i < cart.items.length; i++) {
+      const item = cart.items[i];
+
       if (!item.startDate || !item.endDate) {
-        validationErrors[i] = "Start and end date required";
+        setError("All items must have start and end dates selected");
+        hasValidationError = true;
+        break;
       } else if (item.startDate < today) {
-        validationErrors[i] = "Start date cannot be in past";
-      } else if (item.endDate <= item.startDate) {
-        validationErrors[i] = "End must be after start";
+        setError("Start date cannot be in the past");
+        hasValidationError = true;
+        break;
+      } else if (new Date(item.startDate) >= new Date(item.endDate)) {
+        setError("End date must be after start date for all items");
+        hasValidationError = true;
+        break;
       }
-    });
+    }
 
-    // Merge validation errors with existing ones from updateItem()
-    const combinedErrors = { ...errors, ...validationErrors };
-
-    // If there are any error messages, block checkout
-    if (Object.keys(combinedErrors).length > 0) {
-      setErrors(combinedErrors);
-      console.warn("Checkout blocked due to errors:", combinedErrors);
+    if (hasValidationError) {
       return;
     }
 
@@ -295,9 +309,27 @@ const Cart = () => {
       window.location.href = payment_url;
     } catch (err) {
       console.error("Payment error:", err);
-      setErrors({
-        general: err.response?.data?.message || "Payment initialization failed",
-      });
+
+      let errorMessage = "Something went wrong. Please try again.";
+
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+        if (err.response.data.hint) {
+          errorMessage += ` ${err.response.data.hint}`;
+        }
+      } else if (err.message) {
+        errorMessage = `Failed to initiate payment: ${err.message}`;
+      }
+
+      // Check if it's a rental conflict
+      if (
+        errorMessage.includes("conflict") ||
+        errorMessage.includes("rented")
+      ) {
+        setRentalConflict(errorMessage);
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -317,10 +349,27 @@ const Cart = () => {
           Your Shopping Cart
         </h2>
 
+        {/* Rental Conflict Alert - Similar to Rent component */}
+        {rentalConflict && (
+          <div
+            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
+            role="alert"
+          >
+            <strong className="font-bold">⚠️ Rental Not Allowed: </strong>
+            <span className="block sm:inline">{rentalConflict}</span>
+            <button
+              onClick={() => setRentalConflict(null)}
+              className="absolute top-0 bottom-0 right-0 px-4 py-3 text-xl leading-none hover:text-red-900"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* General error display */}
-        {errors.general && (
+        {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-red-600">{errors.general}</p>
+            <p className="text-red-600">{error}</p>
           </div>
         )}
 
@@ -378,22 +427,32 @@ const Cart = () => {
                                 item.product?.name ||
                                 "Unknown Product"}
                             </h3>
+
+                            {/* Rental status display like in Rent.jsx */}
                             {item.rentalInfo?.isRented && (
-                              <p className="text-sm text-red-600">
-                                Currently rented until{" "}
-                                <strong>
-                                  {new Date(
-                                    item.rentalInfo.rentedUntil
-                                  ).toLocaleDateString()}
-                                </strong>
-                                . Available from{" "}
-                                <strong>
-                                  {new Date(
-                                    item.rentalInfo.availableFrom
-                                  ).toLocaleDateString()}
-                                </strong>
-                                .
-                              </p>
+                              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <p className="text-sm text-red-700 font-medium">
+                                  ⚠️ Currently Rented
+                                </p>
+                                <p className="text-sm text-red-600 mt-1">
+                                  This item is rented until{" "}
+                                  <strong>
+                                    {new Date(
+                                      item.rentalInfo.rentedUntil
+                                    ).toLocaleDateString()}
+                                  </strong>
+                                  .
+                                </p>
+                                <p className="text-sm text-green-600 mt-1">
+                                  Available from{" "}
+                                  <strong>
+                                    {new Date(
+                                      item.rentalInfo.availableFrom
+                                    ).toLocaleDateString()}
+                                  </strong>
+                                  .
+                                </p>
+                              </div>
                             )}
 
                             <p className="mt-1 text-sm text-gray-500">
@@ -466,6 +525,7 @@ const Cart = () => {
                             <input
                               type="date"
                               value={item.startDate}
+                              min={new Date().toISOString().split("T")[0]}
                               onChange={(e) =>
                                 updateItem(i, "startDate", e.target.value)
                               }
@@ -480,6 +540,10 @@ const Cart = () => {
                             <input
                               type="date"
                               value={item.endDate}
+                              min={
+                                item.startDate ||
+                                new Date().toISOString().split("T")[0]
+                              }
                               onChange={(e) =>
                                 updateItem(i, "endDate", e.target.value)
                               }
@@ -488,22 +552,6 @@ const Cart = () => {
                             />
                           </div>
                         </div>
-
-                        {errors[i] && (
-                          <div className="mt-2 text-sm text-red-600">
-                            <p>{errors[i]}</p>
-                            {item.rentalInfo?.availableFrom && (
-                              <p className="text-xs text-gray-500">
-                                This item will be available from:{" "}
-                                <span className="font-medium">
-                                  {new Date(
-                                    item.rentalInfo.availableFrom
-                                  ).toLocaleDateString()}
-                                </span>
-                              </p>
-                            )}
-                          </div>
-                        )}
 
                         <div className="mt-4 flex justify-end">
                           <p className="text-lg font-medium text-gray-900">
@@ -544,14 +592,15 @@ const Cart = () => {
                     onClick={validateAndCheckout}
                     className={`px-6 py-3 border border-transparent rounded-md text-base font-medium text-white transition-colors duration-200 flex items-center justify-center
       ${
-        isLoading || cart.items.length === 0 || Object.keys(errors).length > 0
+        isLoading || cart.items.length === 0 || error || rentalConflict
           ? "bg-blue-300 cursor-not-allowed opacity-50"
           : "bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
       }`}
                     disabled={
                       isLoading ||
                       cart.items.length === 0 ||
-                      Object.keys(errors).length > 0
+                      error ||
+                      rentalConflict
                     }
                   >
                     {isLoading ? (
