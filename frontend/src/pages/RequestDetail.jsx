@@ -5,6 +5,7 @@ export default function RequestDetail() {
   const { id } = useParams();
   const [request, setRequest] = useState(null);
   const [offer, setOffer] = useState({ price: "", message: "" });
+  const [image, setImage] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -29,6 +30,11 @@ export default function RequestDetail() {
     e.preventDefault();
     if (!offer.price) return alert("Offer price is required");
 
+    const formData = new FormData();
+    formData.append("price", offer.price);
+    formData.append("message", offer.message);
+    if (image) formData.append("image", image);
+
     try {
       setSubmitting(true);
       const token = localStorage.getItem("token");
@@ -36,10 +42,9 @@ export default function RequestDetail() {
       const res = await fetch(`http://localhost:8000/api/requests/${id}/counter`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(offer),
+        body: formData,
       });
 
       const data = await res.json();
@@ -47,6 +52,7 @@ export default function RequestDetail() {
 
       alert("✅ Offer submitted successfully");
       setOffer({ price: "", message: "" });
+      setImage(null);
     } catch (err) {
       alert("❌ " + err.message);
     } finally {
@@ -102,6 +108,17 @@ export default function RequestDetail() {
             rows="4"
             className="w-full px-3 py-2 border rounded-md"
           ></textarea>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Optional Product Image
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setImage(e.target.files[0])}
+            className="w-full px-3 py-2 border rounded-md"
+          />
         </div>
         <button
           type="submit"
