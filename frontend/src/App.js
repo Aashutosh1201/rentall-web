@@ -4,7 +4,7 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import PrivateRoute from "./components/PrivateRoute";
 import PostVerificationRoute from "./components/PostVerificationRoute";
-import AdminRoute from "./components/AdminRoute"; // Import the new AdminRoute component
+import AdminRoute from "./components/AdminRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingSpinner from "./components/LoadingSpinner";
 import CreateProduct from "./pages/CreateProduct";
@@ -20,6 +20,7 @@ import EmailVerifyHandler from "./components/EmailVerifyHandler";
 import RequestProduct from "./pages/RequestProduct";
 import RequestsPage from "./pages/RequestsPage";
 import RequestDetail from "./pages/RequestDetail";
+import MyOffersPage from "./pages/MyOffersPage";
 import Profile from "./pages/Profile";
 import ViewAllNotifications from "./pages/ViewAllNotifications";
 import {
@@ -43,12 +44,10 @@ const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CategoryProducts = lazy(() => import("./pages/CategoryProducts"));
-const Admin = lazy(() => import("./pages/Admin")); // Admin Dashboard
+const Admin = lazy(() => import("./pages/Admin"));
 
-// Dashboard component (combined dashboard)
 const Dashboard = lazy(() => import("./pages/Dashboard/Dashboard"));
 
-// Layout Components
 const PublicLayout = ({ children }) => (
   <div className="flex flex-col min-h-screen">
     <Navbar />
@@ -59,15 +58,6 @@ const PublicLayout = ({ children }) => (
   </div>
 );
 
-// const DashboardLayout = ({ children }) => (
-//   <PrivateRoute>
-//     <div className="min-h-screen bg-gray-50">
-//       <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
-//     </div>
-//   </PrivateRoute>
-// );
-
-// Home page component
 const Home = () => (
   <>
     <Hero />
@@ -81,7 +71,6 @@ const Home = () => (
   </>
 );
 
-// 404 Component
 const NotFound = () => (
   <PublicLayout>
     <div className="min-h-screen flex items-center justify-center">
@@ -104,7 +93,6 @@ function App() {
     <Router>
       <ErrorBoundary>
         <Routes>
-          {/* Public routes */}
           <Route
             path="/"
             element={
@@ -143,7 +131,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/categories"
             element={
@@ -152,7 +139,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/categories/:category"
             element={
@@ -161,7 +147,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/how-it-works"
             element={
@@ -170,7 +155,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/create"
             element={
@@ -181,7 +165,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/request-product"
             element={
@@ -192,7 +175,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/requests"
             element={
@@ -201,7 +183,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/requests/:id"
             element={
@@ -212,8 +193,16 @@ function App() {
               </PublicLayout>
             }
           />
-
-          {/* Authentication routes */}
+          <Route
+            path="/my-offers"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <MyOffersPage />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
           <Route
             path="/login"
             element={
@@ -222,7 +211,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/register"
             element={
@@ -231,7 +219,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/forgot-password"
             element={
@@ -240,7 +227,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/reset-password/:token"
             element={
@@ -249,8 +235,6 @@ function App() {
               </PublicLayout>
             }
           />
-
-          {/* KYC routes - accessible after verification or login */}
           <Route
             path="/kyc-info"
             element={
@@ -261,7 +245,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/kyc-form"
             element={
@@ -272,8 +255,6 @@ function App() {
               </PublicLayout>
             }
           />
-
-          {/* Protected routes - require full authentication */}
           <Route
             path="/rent/:id"
             element={
@@ -284,7 +265,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/cart"
             element={
@@ -295,7 +275,6 @@ function App() {
               </PublicLayout>
             }
           />
-
           <Route
             path="/rentals"
             element={
@@ -306,8 +285,6 @@ function App() {
               </PublicLayout>
             }
           />
-
-          {/* Dashboard and Admin routes */}
           <Route
             path="/dashboard"
             element={
@@ -322,7 +299,6 @@ function App() {
             <Route path="orders" element={<MyOrders />} />
             <Route path="products" element={<MyProducts />} />
           </Route>
-
           <Route
             path="/admin"
             element={
@@ -331,11 +307,7 @@ function App() {
               </AdminRoute>
             }
           />
-
-          {/* Payment callback (no layout needed) */}
           <Route path="/payment/callback" element={<PaymentCallback />} />
-
-          {/* 404 Page */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </ErrorBoundary>

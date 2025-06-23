@@ -11,6 +11,22 @@ const cloudinary = require("../config/claudinary");
 const upload = multer({ dest: "temp/" });
 
 /**
+ * GET /api/requests/mine - Fetch requests created by the logged-in user
+ */
+router.get("/mine", verifyToken, async (req, res) => {
+  try {
+    const myRequests = await Request.find({ user: req.user.id })
+      .populate("counterOffers.user", "fullName")
+      .sort({ createdAt: -1 });
+
+    res.json(myRequests);
+  } catch (err) {
+    console.error("Fetching user's requests failed:", err);
+    res.status(500).json({ message: "Server error." });
+  }
+});
+
+/**
  * POST /api/requests - Create a new request with optional image
  */
 router.post("/", verifyToken, upload.single("image"), async (req, res) => {
@@ -75,10 +91,14 @@ router.get("/", async (req, res) => {
  */
 router.get("/:id", async (req, res) => {
   try {
-    const request = await Request.findById(req.params.id).populate("user", "fullName email");
+    const request = await Request.findById(req.params.id)
+      .populate("user", "fullName email")
+      .populate("counterOffers.user", "fullName");
+
     if (!request) {
       return res.status(404).json({ message: "Request not found" });
     }
+
     res.json(request);
   } catch (err) {
     console.error("Fetching request failed:", err);
@@ -100,7 +120,6 @@ router.post("/:id/counter", verifyToken, upload.single("image"), async (req, res
 
     let imageUrl = null;
 
-    // Upload image to Cloudinary if available
     if (req.file) {
       try {
         const result = await cloudinary.uploader.upload(req.file.path, {
