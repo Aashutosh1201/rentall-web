@@ -1,7 +1,7 @@
 const Product = require("../models/Product");
 const KYC = require("../models/KYC");
 const User = require("../models/User"); //
-
+const Notification = require("../models/Notification");
 // Get all products
 const getAllProducts = async (req, res) => {
   try {
@@ -53,22 +53,35 @@ const updateKYCStatus = async (req, res) => {
     kyc.status = status;
     await kyc.save();
 
-    // Also update the associated user's KYC status
     const user = await User.findOne({ email: kyc.email });
     if (user) {
       if (status === "approved") {
         user.kycStatus = "verified";
         user.kycVerifiedAt = new Date();
+        console.log("Creating notification for user:", user._id);
+        await Notification.create({
+          userId: user._id,
+          message: "Your KYC has been approved!",
+          type: "kyc-approved",
+        });
+        console.log("✅ Notification created!");
       } else if (status === "disapproved") {
         user.kycStatus = "rejected";
+
+        await Notification.create({
+          userId: user._id,
+          message:
+            "Your KYC was rejected. Please review your documents and try again.",
+          type: "kyc-rejected",
+        });
       }
+
       await user.save();
     }
 
-    // Return the status in the response to match what the frontend expects
     res.status(200).json({
       message: "KYC status updated successfully",
-      status: kyc.status, // Frontend expects data.status
+      status: kyc.status,
     });
   } catch (error) {
     res.status(500).json({ message: "Failed to update KYC status", error });

@@ -48,7 +48,35 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("/api/notifications", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = await res.json();
+
+        // Ensure it's an array
+        if (Array.isArray(data)) {
+          setNotifications(data);
+        } else {
+          console.error("Unexpected response for notifications:", data);
+          setNotifications([]); // fallback to empty array
+        }
+      } catch (err) {
+        console.error("Failed to fetch notifications:", err);
+        setNotifications([]); // fallback on error
+      }
+    };
+
+    fetchNotifications();
+  }, []);
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
@@ -169,13 +197,43 @@ const Navbar = () => {
 
               {isAuthenticated() ? (
                 <div className="flex items-center space-x-4">
-                  {/* Notification bell */}
-                  <div className="hidden lg:block relative">
-                    <button className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <span className="sr-only">View notifications</span>
-                      <FiBell className="h-6 w-6" />
+                  {/* Notification bell with dropdown */}
+                  <div className="hidden lg:block relative ml-1">
+                    <button
+                      onClick={() => setShowDropdown(!showDropdown)}
+                      className="relative"
+                    >
+                      <FiBell className="text-xl text-gray-600 hover:text-blue-600" />
+                      {notifications.some((n) => !n.read) && (
+                        <span className="absolute top-0 right-0 inline-block w-2 h-2 bg-red-500 rounded-full" />
+                      )}
                     </button>
-                    <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
+                    {showDropdown && (
+                      <div className="absolute right-0 mt-2 w-72 bg-white shadow-xl rounded-lg z-50 p-4 max-h-96 overflow-y-auto">
+                        <h3 className="font-semibold text-gray-700 mb-2">
+                          Notifications
+                        </h3>
+                        {notifications.length === 0 ? (
+                          <p className="text-gray-500 text-sm">
+                            No notifications
+                          </p>
+                        ) : (
+                          notifications.slice(0, 6).map((n) => (
+                            <div
+                              key={n._id}
+                              className={`p-2 mb-1 rounded ${n.read ? "bg-gray-100" : "bg-blue-100"}`}
+                            >
+                              <p className="text-sm text-gray-800">
+                                {n.message}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(n.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Dashboard Link */}
