@@ -78,6 +78,25 @@ const Navbar = () => {
     fetchNotifications();
   }, []);
 
+  const handleNotificationClick = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      await fetch(`/api/notifications/${id}/read`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Optimistically update state
+      setNotifications((prev) =>
+        prev.map((n) => (n._id === id ? { ...n, read: true } : n))
+      );
+    } catch (err) {
+      console.error("Failed to mark notification as read", err);
+    }
+  };
+
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
   };
@@ -204,9 +223,12 @@ const Navbar = () => {
                       className="relative"
                     >
                       <FiBell className="text-xl text-gray-600 hover:text-blue-600" />
-                      {notifications.some((n) => !n.read) && (
-                        <span className="absolute top-0 right-0 inline-block w-2 h-2 bg-red-500 rounded-full" />
-                      )}
+                      {Array.isArray(notifications) &&
+                        notifications.filter((n) => !n.read).length > 0 && (
+                          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                            {notifications.filter((n) => !n.read).length}
+                          </span>
+                        )}
                     </button>
                     {showDropdown && (
                       <div className="absolute right-0 mt-2 w-72 bg-white shadow-xl rounded-lg z-50 p-4 max-h-96 overflow-y-auto">
@@ -214,14 +236,15 @@ const Navbar = () => {
                           Notifications
                         </h3>
                         {notifications.length === 0 ? (
-                          <p className="text-gray-500 text-sm">
-                            No notifications
-                          </p>
+                          <p className="text-gray-500">No notifications</p>
                         ) : (
                           notifications.slice(0, 6).map((n) => (
                             <div
                               key={n._id}
-                              className={`p-2 mb-1 rounded ${n.read ? "bg-gray-100" : "bg-blue-100"}`}
+                              onClick={() => handleNotificationClick(n._id)}
+                              className={`cursor-pointer p-2 mb-1 rounded ${
+                                n.read ? "bg-gray-100" : "bg-blue-100"
+                              }`}
                             >
                               <p className="text-sm text-gray-800">
                                 {n.message}
