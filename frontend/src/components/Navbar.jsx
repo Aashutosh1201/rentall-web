@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -43,6 +43,44 @@ const LogoutConfirmationModal = ({ onConfirm, onCancel }) => {
   );
 };
 
+const NotificationItem = ({ notification, onClick }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <div
+      className={`p-3 mb-2 rounded-lg transition-all cursor-pointer ${
+        notification.read
+          ? "bg-gray-50 hover:bg-gray-100"
+          : "bg-blue-50 hover:bg-blue-100"
+      } ${isHovered ? "shadow-sm" : ""}`}
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="flex items-start">
+        {!notification.read && (
+          <div className="mt-1 mr-2">
+            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+          </div>
+        )}
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-800">
+            {notification.message}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            {new Date(notification.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              month: "short",
+              day: "numeric",
+            })}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Navbar = () => {
   const { isAuthenticated, logout, user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -51,6 +89,7 @@ const Navbar = () => {
   const [notifications, setNotifications] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const navigate = useNavigate();
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -62,20 +101,32 @@ const Navbar = () => {
 
         const data = await res.json();
 
-        // Ensure it's an array
         if (Array.isArray(data)) {
           setNotifications(data);
         } else {
           console.error("Unexpected response for notifications:", data);
-          setNotifications([]); // fallback to empty array
+          setNotifications([]);
         }
       } catch (err) {
         console.error("Failed to fetch notifications:", err);
-        setNotifications([]); // fallback on error
+        setNotifications([]);
       }
     };
 
     fetchNotifications();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const handleNotificationClick = async (id) => {
@@ -88,10 +139,10 @@ const Navbar = () => {
         },
       });
 
-      // Optimistically update state
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, read: true } : n))
       );
+      setShowDropdown(false);
     } catch (err) {
       console.error("Failed to mark notification as read", err);
     }
@@ -115,12 +166,10 @@ const Navbar = () => {
     navigate("/profile");
   };
 
-  // Function to get the profile image source
   const getProfileImageSrc = () => {
     return user?.profilePhoto || null;
   };
 
-  // Function to get user initial
   const getUserInitial = () => {
     return user?.fullName?.charAt(0).toUpperCase() || "U";
   };
@@ -216,44 +265,74 @@ const Navbar = () => {
 
               {isAuthenticated() ? (
                 <div className="flex items-center space-x-4">
-                  {/* Notification bell with dropdown */}
-                  <div className="hidden lg:block relative ml-1">
+                  {/* Enhanced Notification Bell */}
+                  <div
+                    className="hidden lg:block relative ml-1"
+                    ref={dropdownRef}
+                  >
                     <button
                       onClick={() => setShowDropdown(!showDropdown)}
-                      className="relative"
+                      className="relative p-1.5 rounded-full hover:bg-gray-100 transition-colors"
                     >
-                      <FiBell className="text-xl text-gray-600 hover:text-blue-600" />
-                      {Array.isArray(notifications) &&
-                        notifications.filter((n) => !n.read).length > 0 && (
-                          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                            {notifications.filter((n) => !n.read).length}
-                          </span>
-                        )}
+                      <div className="relative">
+                        <FiBell className="text-xl text-gray-600 hover:text-blue-600" />
+                        {Array.isArray(notifications) &&
+                          notifications.filter((n) => !n.read).length > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium shadow-sm">
+                              {notifications.filter((n) => !n.read).length}
+                            </span>
+                          )}
+                      </div>
                     </button>
                     {showDropdown && (
-                      <div className="absolute right-0 mt-2 w-72 bg-white shadow-xl rounded-lg z-50 p-4 max-h-96 overflow-y-auto">
-                        <h3 className="font-semibold text-gray-700 mb-2">
-                          Notifications
-                        </h3>
-                        {notifications.length === 0 ? (
-                          <p className="text-gray-500">No notifications</p>
-                        ) : (
-                          notifications.slice(0, 6).map((n) => (
-                            <div
-                              key={n._id}
-                              onClick={() => handleNotificationClick(n._id)}
-                              className={`cursor-pointer p-2 mb-1 rounded ${
-                                n.read ? "bg-gray-100" : "bg-blue-100"
-                              }`}
-                            >
-                              <p className="text-sm text-gray-800">
-                                {n.message}
+                      <div className="absolute right-0 mt-2 w-80 bg-white shadow-lg rounded-xl z-50 overflow-hidden border border-gray-200">
+                        <div className="p-4 border-b border-gray-100 bg-gray-50">
+                          <h3 className="font-semibold text-gray-800 flex items-center">
+                            <FiBell className="mr-2" />
+                            Notifications
+                            {notifications.length > 0 && (
+                              <span className="ml-auto text-xs font-medium text-gray-500">
+                                {notifications.filter((n) => !n.read).length}{" "}
+                                new
+                              </span>
+                            )}
+                          </h3>
+                        </div>
+                        <div className="max-h-96 overflow-y-auto">
+                          {notifications.length === 0 ? (
+                            <div className="p-6 text-center">
+                              <FiBell className="mx-auto text-gray-400 h-8 w-8 mb-2" />
+                              <p className="text-gray-500">
+                                No notifications yet
                               </p>
-                              <p className="text-xs text-gray-500">
-                                {new Date(n.createdAt).toLocaleString()}
+                              <p className="text-xs text-gray-400 mt-1">
+                                We'll notify you when something arrives
                               </p>
                             </div>
-                          ))
+                          ) : (
+                            <div className="p-2">
+                              {notifications.slice(0, 6).map((n) => (
+                                <NotificationItem
+                                  key={n._id}
+                                  notification={n}
+                                  onClick={() => handleNotificationClick(n._id)}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {notifications.length > 0 && (
+                          <div className="p-3 border-t border-gray-100 bg-gray-50 text-center">
+                            <button
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                              onClick={() => {
+                                setShowDropdown(false);
+                                navigate("/notifications");
+                              }}
+                            >
+                              View all notifications
+                            </button>
+                          </div>
                         )}
                       </div>
                     )}
@@ -275,7 +354,7 @@ const Navbar = () => {
 
                   <CartIcon />
 
-                  {/* Profile avatar - now shows KYC selfie if available */}
+                  {/* Profile avatar */}
                   <button
                     onClick={handleProfileClick}
                     className="flex rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -478,6 +557,28 @@ const Navbar = () => {
                 >
                   <div className="flex items-center">
                     <FiUser className="mr-2" /> Profile
+                  </div>
+                </NavLink>
+                {/* Mobile Notifications Link */}
+                <NavLink
+                  to="/notifications"
+                  className={({ isActive }) =>
+                    `block px-3 py-2 rounded-md text-base font-medium ${
+                      isActive
+                        ? "bg-blue-50 text-blue-600"
+                        : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                    }`
+                  }
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <div className="flex items-center">
+                    <FiBell className="mr-2" />
+                    Notifications
+                    {notifications.filter((n) => !n.read).length > 0 && (
+                      <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                        {notifications.filter((n) => !n.read).length}
+                      </span>
+                    )}
                   </div>
                 </NavLink>
               </>

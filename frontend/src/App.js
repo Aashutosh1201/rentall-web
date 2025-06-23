@@ -21,6 +21,7 @@ import RequestProduct from "./pages/RequestProduct";
 import RequestsPage from "./pages/RequestsPage";
 import RequestDetail from "./pages/RequestDetail";
 import Profile from "./pages/Profile";
+import ViewAllNotifications from "./pages/ViewAllNotifications";
 import {
   DashboardHome,
   MyOrders,
@@ -124,7 +125,16 @@ function App() {
               </PublicLayout>
             }
           />
-
+          <Route
+            path="/notifications"
+            element={
+              <PublicLayout>
+                <PrivateRoute>
+                  <ViewAllNotifications />
+                </PrivateRoute>
+              </PublicLayout>
+            }
+          />
           <Route
             path="/product/:id"
             element={
