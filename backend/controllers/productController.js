@@ -2,6 +2,7 @@ const Product = require("../models/Product");
 const cloudinary = require("../config/claudinary");
 const User = require("../models/User");
 const Rental = require("../models/Rental");
+const Notification = require("../models/Notification");
 
 const createProduct = async (req, res) => {
   try {
@@ -68,6 +69,12 @@ const createProduct = async (req, res) => {
     });
 
     await product.save();
+
+    await Notification.create({
+      userId: req.user.id || req.user.userId,
+      message: `You created a product: "${product.title}"`,
+      type: "product-created",
+    });
 
     res.status(201).json({ message: "Product created successfully", product });
   } catch (err) {

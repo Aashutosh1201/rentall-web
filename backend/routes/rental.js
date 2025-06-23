@@ -9,6 +9,7 @@ const Rental = require("../models/Rental");
 const Product = require("../models/Product");
 const mongoose = require("mongoose");
 const Cart = require("../models/Cart");
+const Notification = require("../models/Notification");
 
 // Function to generate unique purchase order ID
 function generatePurchaseOrderId() {
@@ -137,6 +138,27 @@ router.post("/create", verifyToken, checkKYC, async (req, res) => {
 
     console.log("Saving rental:", rental); // Debug log
     const savedRental = await rental.save();
+
+    const renterId = req.user.id || req.user.userId;
+    const productTitle = product.title || "a product";
+
+    // Notify renter
+    await Notification.create({
+      userId: renterId,
+      message: `You rented "${productTitle}"`,
+      type: "rental-confirmed",
+    });
+
+    // Notify product owner (if different from renter)
+    if (product.owner?.toString() !== renterId.toString()) {
+      const renterName = req.user.fullName || req.user.name || "Someone";
+      await Notification.create({
+        userId: product.owner,
+        message: `${renterName} rented your product: "${productTitle}"`,
+        type: "rental-confirmed",
+      });
+    }
+
     console.log("Rental saved successfully:", savedRental._id); // Debug log
 
     await Cart.updateOne(
