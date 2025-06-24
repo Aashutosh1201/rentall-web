@@ -5,25 +5,37 @@ const Admin = () => {
   const [products, setProducts] = useState([]);
   const [kycSubmissions, setKycSubmissions] = useState([]);
   const [users, setUsers] = useState([]);
+  const [categories, setCategories] = useState([]);
+
   const [activeTab, setActiveTab] = useState("Products");
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedImage, setSelectedImage] = useState(null); // for image modal
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  // New category form state
+  const [newCategory, setNewCategory] = useState({
+    label: "",
+    icon: "",
+    description: "",
+  });
+  const [categoryError, setCategoryError] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError("");
       try {
-        const [productRes, kycRes, usersRes] = await Promise.all([
+        const [productRes, kycRes, usersRes, categoryRes] = await Promise.all([
           axiosInstance.get("/admin/products"),
           axiosInstance.get("/admin/kyc"),
           axiosInstance.get("/users"),
+          axiosInstance.get("/admin/categories"),
         ]);
         setProducts(productRes.data);
         setKycSubmissions(kycRes.data);
         setUsers(usersRes.data);
+        setCategories(categoryRes.data);
       } catch (err) {
         console.error(err.response ? err.response.data : err.message);
         setError("Error fetching data. Please try again.");
@@ -52,11 +64,9 @@ const Admin = () => {
     try {
       const { data } = await axiosInstance.patch(`/admin/kyc/${id}`, { status });
       setKycSubmissions((prev) =>
-        prev
-          .map((kyc) =>
-            kyc._id === id ? { ...kyc, status: data.status } : kyc
-          )
-          .sort((a, b) => (a.status === "pending" ? -1 : 1))
+        prev.map((kyc) =>
+          kyc._id === id ? { ...kyc, status: data.status } : kyc
+        )
       );
     } catch (err) {
       setError("Failed to update KYC status.");
@@ -74,7 +84,37 @@ const Admin = () => {
     }
   };
 
-  // Filtered lists
+  const deleteCategory = async (id) => {
+    try {
+      await axiosInstance.delete(`/admin/categories/${id}`);
+      setCategories((prev) => prev.filter((cat) => cat._id !== id));
+    } catch (err) {
+      console.error(err);
+      setCategoryError("Failed to delete category.");
+    }
+  };
+
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    const exists = categories.some(
+      (cat) => cat.label.toLowerCase() === newCategory.label.trim().toLowerCase()
+    );
+    if (exists) {
+      setCategoryError("Category with this label already exists.");
+      return;
+    }
+
+    try {
+      const res = await axiosInstance.post("/admin/categories", newCategory);
+      setCategories((prev) => [...prev, res.data]);
+      setNewCategory({ label: "", icon: "", description: "" });
+      setCategoryError("");
+    } catch (err) {
+      console.error(err);
+      setCategoryError("Failed to add category.");
+    }
+  };
+
   const filteredProducts = products.filter(
     (p) =>
       p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -105,8 +145,8 @@ const Admin = () => {
         </button>
       </header>
 
-      <nav className="flex mb-6 border-b">
-        {["Products", "KYC Submissions", "Users"].map((tab) => (
+      <nav className="flex flex-wrap mb-6 border-b">
+        {["Products", "KYC Submissions", "Users", "Categories"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -124,7 +164,7 @@ const Admin = () => {
       {error && <div className="text-red-500 mb-4">{error}</div>}
       {loading && <div className="text-center">Loading...</div>}
 
-      {!loading && (
+      {!loading && activeTab !== "Categories" && (
         <input
           type="text"
           placeholder={`Search ${activeTab.toLowerCase()}...`}
@@ -248,7 +288,75 @@ const Admin = () => {
         </section>
       )}
 
-      {/* Fullscreen Image Modal */}
+
+      {/* ------------------- Categories Tab ------------------- */}
+      {!loading && activeTab === "Categories" && (
+        <section>
+          <h2 className="text-2xl font-semibold mb-4 text-gray-700">Categories</h2>
+
+          <form onSubmit={handleAddCategory} className="mb-6 bg-white p-4 rounded shadow space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <input
+                type="text"
+                placeholder="Label"
+                value={newCategory.label}
+                onChange={(e) => setNewCategory({ ...newCategory, label: e.target.value })}
+                required
+                className="border px-4 py-2 rounded"
+              />
+              <input
+                type="text"
+                placeholder="Icon URL or name"
+                value={newCategory.icon}
+                onChange={(e) => setNewCategory({ ...newCategory, icon: e.target.value })}
+                required
+                className="border px-4 py-2 rounded"
+              />
+              <input
+                type="text"
+                placeholder="Description (optional)"
+                value={newCategory.description}
+                onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+                className="border px-4 py-2 rounded"
+              />
+            </div>
+            {categoryError && <p className="text-red-500">{categoryError}</p>}
+            <button
+              type="submit"
+              className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
+            >
+              Add Category
+            </button>
+          </form>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {categories.map((cat) => (
+              <div
+                key={cat._id}
+                className="bg-white p-4 rounded shadow flex flex-col justify-between"
+              >
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                    <span>{cat.label}</span>
+                    <span className="text-sm text-gray-500">{cat.icon}</span>
+                  </h3>
+                  {cat.description && (
+                    <p className="text-gray-600 mt-2">{cat.description}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => deleteCategory(cat._id)}
+                  className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Fullscreen image preview modal */}
       {selectedImage && (
         <div
           className="fixed inset-0 z-50 bg-black bg-opacity-75 flex justify-center items-center"
