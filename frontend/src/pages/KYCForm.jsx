@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 const KYCForm = () => {
-  const { user } = useAuth();
+  const { user, getToken } = useAuth();
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -295,7 +295,7 @@ const KYCForm = () => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${user.token}`,
+              Authorization: `Bearer ${getToken()}`,
             },
             body: JSON.stringify({ phone: formData.phone }),
           }
