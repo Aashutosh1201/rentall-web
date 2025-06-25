@@ -1,21 +1,20 @@
 import { useEffect, useState } from "react";
+import { Dialog } from "@headlessui/react";
+import { CheckCircle, XCircle, CalendarDays, MapPin, Tag } from "lucide-react";
 
 export default function MyOffersPage() {
   const [products, setProducts] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, requestId: null, offerId: null });
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
 
-    try {
-      const base64 = token.split(".")[1];
-      const payload = JSON.parse(atob(base64));
-      setCurrentUserId(payload.id);
-    } catch (err) {
-      console.error("Invalid token:", err);
-    }
+    const base64 = token.split(".")[1];
+    const payload = JSON.parse(atob(base64));
+    setCurrentUserId(payload.id);
 
     fetchMyProducts();
   }, []);
@@ -33,35 +32,19 @@ export default function MyOffersPage() {
     }
   };
 
-  const handleAcceptOffer = async (requestId, offerId) => {
-    console.log("🔥 Accepting offer:", { requestId, offerId });
-
+  const handleConfirmAccept = async () => {
+    const { requestId, offerId } = confirmDialog;
     const token = localStorage.getItem("token");
-    if (!token || !requestId || !offerId) {
-      console.error("Missing data for accepting offer");
-      return;
-    }
-
     try {
-      const res = await fetch(
-        `http://localhost:8000/api/requests/${requestId}/accept-offer/${offerId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!res.ok) {
-        const errorMsg = await res.text();
-        console.error("❌ Error accepting offer:", errorMsg);
-        return;
-      }
-
+      await fetch(`http://localhost:8000/api/requests/${requestId}/accept-offer/${offerId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setConfirmDialog({ open: false, requestId: null, offerId: null });
       await fetchMyProducts();
-      console.log("✅ Offer accepted and data refreshed.");
     } catch (err) {
       console.error("Failed to accept offer:", err);
     }
@@ -69,88 +52,85 @@ export default function MyOffersPage() {
 
   const renderStatus = (status) => {
     const s = status?.toLowerCase();
-    if (s === "accepted") return <span className="text-green-600">✅ Accepted</span>;
-    if (s === "rejected") return <span className="text-red-500">❌ Rejected</span>;
-    return <span className="text-gray-500">⏳ Pending</span>;
+    if (s === "accepted") return <span className="text-green-600 font-semibold">✅ Accepted</span>;
+    if (s === "rejected") return <span className="text-red-500 font-semibold">❌ Rejected</span>;
+    return <span className="text-yellow-600 font-semibold">⏳ Pending</span>;
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-blue-800 mb-6">My Product Offers</h1>
+    <div className="max-w-6xl mx-auto px-4 py-12">
+      <h1 className="text-4xl font-bold text-blue-800 mb-10 text-center">My Posted Requests & Offers</h1>
 
-      {!Array.isArray(products) ? (
-        <p className="text-red-500">Something went wrong. Could not load offers.</p>
-      ) : products.length === 0 ? (
-        <p className="text-gray-500">You haven’t posted any products yet.</p>
+      {products.length === 0 ? (
+        <p className="text-gray-500 text-center">You haven’t posted any products yet.</p>
       ) : (
-        products.map((product) => (
-          <div key={product._id} className="mb-10 border-b pb-6">
-            <h2 className="text-xl font-semibold mb-2">{product.name}</h2>
-
-            {product.counterOffers?.length > 0 ? (
-              <div className="space-y-4">
-                {product.counterOffers.map((offer, index) => {
-                  const status = offer.status?.toLowerCase() || "pending";
-                  const isPending = status === "pending";
-
-                  return (
-                    <div
-                      key={offer._id || index}
-                      className="bg-white p-4 rounded-md border shadow-sm space-y-2 relative"
-                    >
-                      <p className="text-gray-800 font-semibold">
-                        Price: Rs. {offer.price}
-                      </p>
-
-                      {offer.message && (
-                        <p className="text-gray-600">💬 {offer.message}</p>
-                      )}
-
-                      {offer.image && (
-                        <img
-                          src={offer.image}
-                          alt="Offer"
-                          className="w-48 rounded border cursor-pointer hover:opacity-90"
-                          onClick={() => setSelectedImage(offer.image)}
-                        />
-                      )}
-
-                      <p className="text-sm text-gray-500">
-                        Submitted on:{" "}
-                        {offer.createdAt
-                          ? new Date(offer.createdAt).toLocaleString()
-                          : "Unknown"}
-                      </p>
-
-                      {offer.user?.fullName && (
-                        <p className="text-sm text-gray-500">
-                          By: {offer.user.fullName}
-                        </p>
-                      )}
-
-                      <div className="flex items-center gap-4 mt-2">
-                        <span>Status: {renderStatus(status)}</span>
-                        <button
-                          onClick={() => handleAcceptOffer(product._id, offer._id)}
-                          disabled={!isPending}
-                          className={`px-4 py-1 rounded text-sm transition ${
-                            isPending
-                              ? "bg-green-600 text-white hover:bg-green-700"
-                              : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                          }`}
-                        >
-                          Accept Offer
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+        <div className="space-y-10">
+          {products.map((product) => (
+            <div key={product._id} className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+              <div className="mb-4">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-2">{product.name}</h2>
+                <div className="text-sm text-gray-600 flex flex-wrap gap-4">
+                  <span className="flex items-center gap-1"><Tag className="w-4 h-4" /> Rs. {product.price}/day</span>
+                  <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {product.location}</span>
+                  <span className="flex items-center gap-1"><CalendarDays className="w-4 h-4" /> {product.needDates?.join(", ")}</span>
+                </div>
+                <p className="mt-2 text-gray-500 text-sm">{product.description}</p>
               </div>
-            ) : (
-              <p className="text-gray-500">No counter offers yet.</p>
-            )}
-          </div>
-        ))
+
+              <div className="mt-6">
+                <h3 className="text-lg font-medium text-blue-700 mb-3">Counter Offers:</h3>
+                {product.counterOffers?.length > 0 ? (
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    {product.counterOffers.map((offer, index) => {
+                      const status = offer.status?.toLowerCase() || "pending";
+                      return (
+                        <div
+                          key={index}
+                          className="p-4 border rounded-lg shadow-sm bg-gray-50 hover:shadow-md transition"
+                        >
+                          <div className="text-sm text-gray-800">
+                            <p className="font-semibold mb-1">Price: Rs. {offer.price}</p>
+                            {offer.message && <p className="text-gray-600 mb-1">💬 {offer.message}</p>}
+                            {offer.user?.fullName && <p className="text-gray-500 mb-1">By: {offer.user.fullName}</p>}
+                            <p className="text-xs text-gray-400 mb-2">
+                              Submitted on: {new Date(offer.createdAt).toLocaleString()}
+                            </p>
+                            {offer.image && (
+                              <img
+                                src={offer.image}
+                                alt="Offer"
+                                className="w-full max-w-xs rounded border mb-3 cursor-pointer hover:scale-105 transition"
+                                onClick={() => setSelectedImage(offer.image)}
+                              />
+                            )}
+                            <div className="flex items-center justify-between mt-3">
+                              <span>Status: {renderStatus(status)}</span>
+                              <button
+                                disabled={status !== "pending"}
+                                onClick={() =>
+                                  setConfirmDialog({ open: true, requestId: product._id, offerId: offer._id })
+                                }
+                                className={`px-4 py-1 rounded text-sm font-medium transition ${
+                                  status === "pending"
+                                    ? "bg-green-600 text-white hover:bg-green-700"
+                                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                }`}
+                              >
+                                Accept Offer
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">No counter offers yet.</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Fullscreen Image Modal */}
@@ -166,6 +146,37 @@ export default function MyOffersPage() {
           />
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={() => setConfirmDialog({ open: false, requestId: null, offerId: null })}
+        className="fixed inset-0 z-50 flex items-center justify-center"
+      >
+        <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+        <div className="bg-white p-6 rounded-lg z-10 max-w-md w-full mx-4">
+          <Dialog.Title className="text-xl font-bold text-gray-800 mb-2">
+            Confirm Acceptance
+          </Dialog.Title>
+          <Dialog.Description className="text-gray-600 mb-4">
+            Are you sure you want to accept this offer? This will reject all other offers for this product.
+          </Dialog.Description>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setConfirmDialog({ open: false, requestId: null, offerId: null })}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmAccept}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
