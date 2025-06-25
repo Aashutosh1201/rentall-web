@@ -45,8 +45,16 @@ const KYCForm = () => {
 
     if (user) {
       setUserEmail(user.email);
-      const phoneVerified = user.phone && user.phone !== "not provided";
+      const justVerified = sessionStorage.getItem("justVerified") === "true";
+
+      // Detect if signed up with Google OAuth (no password and no phone)
+      const isOAuth = !user.phone || user.phone === "not provided";
+
+      // Only consider phone verified if it came from email/password registration
+      const phoneVerified = (!isOAuth && user.phone) || justVerified;
+
       setIsPhoneVerified(phoneVerified);
+
       setFormData((prev) => ({
         ...prev,
         fullName: user.fullName || "",
@@ -301,14 +309,6 @@ const KYCForm = () => {
     }
 
     try {
-      // Only simulate phone verification if phone was not verified during signup
-      if (!user?.phone || user.phone === "not provided") {
-        const verificationToken = Math.floor(100000 + Math.random() * 900000);
-        console.log(
-          `📲 Verification token sent to ${formData.phone}: ${verificationToken}`
-        );
-      }
-
       const res = await fetch(`http://localhost:8000/api/kyc`, {
         method: "POST",
         body: payload,
