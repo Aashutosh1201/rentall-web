@@ -96,6 +96,21 @@ const Login = () => {
             setGoogleRedirectInProgress(true);
 
             const success = await login(token);
+            if (success) {
+              try {
+                const res = await fetch(
+                  `http://localhost:8000/api/kyc/status/${user.email}`
+                );
+                const data = await res.json();
+
+                const redirectPath = data.exists ? "/dashboard" : "/kyc-info";
+                navigate(redirectPath, { replace: true });
+              } catch (error) {
+                console.error("Error checking KYC status:", error);
+                navigate("/kyc-info", { replace: true }); // fallback to KYC
+              }
+            }
+
             console.log("🐛 Google login success:", success);
 
             if (success) {

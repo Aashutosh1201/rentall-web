@@ -8,6 +8,11 @@ const KYCForm = () => {
   const [userEmail, setUserEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [verificationToken, setVerificationToken] = useState("");
+  const [enteredToken, setEnteredToken] = useState("");
+  const [tokenSent, setTokenSent] = useState(false);
+
   const [errors, setErrors] = useState({});
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -40,10 +45,12 @@ const KYCForm = () => {
 
     if (user) {
       setUserEmail(user.email);
+      const phoneVerified = user.phone && user.phone !== "not provided";
+      setIsPhoneVerified(phoneVerified);
       setFormData((prev) => ({
         ...prev,
         fullName: user.fullName || "",
-        phone: user.phone || "",
+        phone: phoneVerified ? user.phone : "",
       }));
     } else if (pendingEmail) {
       setUserEmail(pendingEmail);
@@ -275,6 +282,12 @@ const KYCForm = () => {
     setIsSubmitting(true);
     setError("");
 
+    if (!isPhoneVerified) {
+      setError("Please verify your phone number before submitting the form.");
+      setIsSubmitting(false);
+      return;
+    }
+
     if (!validateForm()) {
       setError("Please fix all validation errors before submitting");
       setIsSubmitting(false);
@@ -288,22 +301,12 @@ const KYCForm = () => {
     }
 
     try {
-      if (user && user.phone === "not provided") {
-        const phoneRes = await fetch(
-          "http://localhost:8000/api/auth/complete-profile",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${getToken()}`,
-            },
-            body: JSON.stringify({ phone: formData.phone }),
-          }
+      // Only simulate phone verification if phone was not verified during signup
+      if (!user?.phone || user.phone === "not provided") {
+        const verificationToken = Math.floor(100000 + Math.random() * 900000);
+        console.log(
+          `📲 Verification token sent to ${formData.phone}: ${verificationToken}`
         );
-
-        const phoneData = await phoneRes.json();
-        if (!phoneRes.ok)
-          throw new Error(phoneData.message || "Phone update failed");
       }
 
       const res = await fetch(`http://localhost:8000/api/kyc`, {
@@ -462,6 +465,55 @@ const KYCForm = () => {
                 <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
               )}
             </div>
+            {!isPhoneVerified && (
+              <>
+                <button
+                  type="button"
+                  className="mt-2 bg-blue-500 text-white px-3 py-1 rounded"
+                  onClick={() => {
+                    const token = Math.floor(
+                      100000 + Math.random() * 900000
+                    ).toString();
+                    setVerificationToken(token);
+                    setTokenSent(true);
+                    console.log(
+                      `📲 Simulated SMS token for ${formData.phone}: ${token}`
+                    );
+                  }}
+                  disabled={tokenSent || isSubmitting || !formData.phone}
+                >
+                  Send Token
+                </button>
+
+                {tokenSent && (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      placeholder="Enter 6-digit token"
+                      value={enteredToken}
+                      onChange={(e) => setEnteredToken(e.target.value)}
+                      maxLength={6}
+                      className="border px-2 py-1 rounded w-full mt-1"
+                      disabled={isSubmitting}
+                    />
+                    <button
+                      type="button"
+                      className="mt-2 bg-green-500 text-white px-3 py-1 rounded"
+                      onClick={() => {
+                        if (enteredToken === verificationToken) {
+                          setIsPhoneVerified(true);
+                          alert("✅ Phone verified");
+                        } else {
+                          alert("❌ Incorrect token");
+                        }
+                      }}
+                    >
+                      Verify
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <div className="space-y-1">

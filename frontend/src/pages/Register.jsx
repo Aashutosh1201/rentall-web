@@ -167,14 +167,32 @@ const Register = () => {
       window.addEventListener("message", async (event) => {
         if (event.origin === "http://localhost:8000") {
           const { token } = event.data;
+
           if (token) {
             const success = await login(token);
             if (success) {
-              navigate("/kyc-info");
+              try {
+                // 👇 Fetch updated user from AuthContext
+                const storedUser = JSON.parse(localStorage.getItem("user"));
+                const userEmail = storedUser?.email;
+                console.log("🔍 Checking KYC for:", userEmail);
+
+                const res = await fetch(
+                  `http://localhost:8000/api/kyc/status/${userEmail}`
+                );
+                const data = await res.json();
+
+                const redirectPath = data.exists ? "/dashboard" : "/kyc-info";
+                navigate(redirectPath, { replace: true });
+              } catch (error) {
+                console.error("Error checking KYC status:", error);
+                navigate("/kyc-info", { replace: true }); // fallback to KYC
+              }
             } else {
               setError("Failed to register with Google");
             }
           }
+
           popup.close();
           setIsGoogleLoading(false);
         }
