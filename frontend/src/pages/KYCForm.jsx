@@ -47,11 +47,8 @@ const KYCForm = () => {
       setUserEmail(user.email);
       const justVerified = sessionStorage.getItem("justVerified") === "true";
 
-      // Detect if signed up with Google OAuth (no password and no phone)
-      const isOAuth = !user.phone || user.phone === "not provided";
-
       // Only consider phone verified if it came from email/password registration
-      const phoneVerified = (!isOAuth && user.phone) || justVerified;
+      const phoneVerified = user?.phoneVerified === true;
 
       setIsPhoneVerified(phoneVerified);
 
@@ -465,7 +462,7 @@ const KYCForm = () => {
                 <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
               )}
             </div>
-            {!isPhoneVerified && (
+            {user && !user.phoneVerified && (
               <>
                 <button
                   type="button"
