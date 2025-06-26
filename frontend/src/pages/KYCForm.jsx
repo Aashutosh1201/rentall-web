@@ -445,19 +445,40 @@ const KYCForm = () => {
                 Phone Number
                 <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                maxLength={10}
-                className={`w-full border ${
-                  errors.phone ? "border-red-300" : "border-gray-300"
-                } rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
-                disabled={isSubmitting}
-                placeholder="9812345678"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  maxLength={10}
+                  className={`w-full border ${
+                    errors.phone ? "border-red-300" : "border-gray-300"
+                  } rounded-md px-4 py-2 pr-10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
+                  disabled={isSubmitting}
+                  placeholder="9812345678"
+                />
+                {isPhoneVerified && (
+                  <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                    <svg
+                      className="h-5 w-5 text-green-500"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                )}
+              </div>
+
               {errors.phone && (
                 <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
               )}
