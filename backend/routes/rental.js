@@ -10,6 +10,8 @@ const Product = require("../models/Product");
 const mongoose = require("mongoose");
 const Cart = require("../models/Cart");
 const Notification = require("../models/Notification");
+const Hub = require("../models/Hub");
+const upload = require("../middlewares/cloudinaryUploader");
 
 // Function to generate unique purchase order ID
 function generatePurchaseOrderId() {
@@ -32,6 +34,8 @@ router.post("/create", verifyToken, checkKYC, async (req, res) => {
       paymentId, // pidx from Khalti
       transactionId,
     } = req.body;
+
+    const deliveryMethod = req.body.deliveryMethod || "self-pickup";
 
     // Validate required fields
     const requiredFields = {
@@ -65,7 +69,8 @@ router.post("/create", verifyToken, checkKYC, async (req, res) => {
         message: "Product not found",
       });
     }
-
+    product.status = "pending";
+    await product.save();
     // Validate dates
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -119,6 +124,14 @@ router.post("/create", verifyToken, checkKYC, async (req, res) => {
     // Generate unique purchase order ID
     const purchaseOrderId = generatePurchaseOrderId();
 
+    const hub = await Hub.findOne({ name: "Maitidevi Hub" });
+    if (!hub) {
+      return res.status(500).json({
+        success: false,
+        message: "Hub not found. Please try again later.",
+      });
+    }
+
     // Create rental with all required fields
     const rental = new Rental({
       userId: requiredFields.userId,
@@ -132,8 +145,23 @@ router.post("/create", verifyToken, checkKYC, async (req, res) => {
       transactionId: transactionId || paymentId,
       purchaseOrderId, // Auto-generated unique purchase order ID
       status: "active",
+      pickup: {
+        method: "pending",
+        status: "pending",
+        photoProof: null,
+        confirmedByAdmin: false,
+      },
+      delivery: {
+        method: "pending",
+        status: "pending",
+        photoProof: null,
+        confirmedByAdmin: false,
+      },
+
+      hubId: hub._id,
       paymentStatus: "completed",
       createdAt: new Date(),
+      deliveryMethod,
     });
 
     console.log("Saving rental:", rental); // Debug log
@@ -209,6 +237,38 @@ router.post("/create", verifyToken, checkKYC, async (req, res) => {
       error: error.message,
       stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
+  }
+});
+
+router.post("/pickup-choice/:rentalId", verifyToken, async (req, res) => {
+  try {
+    const { rentalId } = req.params;
+    const { method } = req.body; // "lender-dropoff" or "company-pickup"
+
+    if (!["lender-dropoff", "company-pickup"].includes(method)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid method" });
+    }
+
+    const rental = await Rental.findById(rentalId);
+    if (!rental) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Rental not found" });
+    }
+
+    rental.pickup.method = method;
+    rental.pickup.status = "confirmed";
+    await rental.save();
+
+    res
+      .status(200)
+      .json({ success: true, message: "Pickup method set", rental });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: err.message });
   }
 });
 
@@ -525,5 +585,107 @@ router.post("/conflict-check", verifyToken, async (req, res) => {
       .json({ message: "Server error while checking rental conflict." });
   }
 });
+
+// Route for borrower's choice
+router.post("/delivery-choice/:rentalId", verifyToken, async (req, res) => {
+  try {
+    const { rentalId } = req.params;
+    const { method } = req.body; // "self-pickup" or "company-delivery"
+
+    if (!["self-pickup", "company-delivery"].includes(method)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid method" });
+    }
+
+    const rental = await Rental.findById(rentalId);
+    if (!rental) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Rental not found" });
+    }
+
+    rental.delivery.method = method;
+    rental.delivery.status = "confirmed";
+    await rental.save();
+
+    res
+      .status(200)
+      .json({ success: true, message: "Delivery method set", rental });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: err.message });
+  }
+});
+
+// rental pickup proof photo
+router.post(
+  "/pickup-proof/:rentalId",
+  (req, res, next) => {
+    req.uploadFolder = "rentall/proofs/pickup"; // dynamically set folder in Cloudinary
+    next();
+  },
+  upload.single("photo"),
+  async (req, res) => {
+    try {
+      const rental = await Rental.findById(req.params.rentalId);
+      if (!rental) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Rental not found" });
+      }
+
+      rental.pickup.photoProof = req.file.path; // Cloudinary URL
+      rental.pickup.status = "completed";
+      rental.pickup.confirmedByAdmin = true;
+
+      await rental.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Pickup photo uploaded and confirmed",
+        url: req.file.path,
+      });
+    } catch (err) {
+      console.error("Pickup proof upload error:", err);
+      res
+        .status(500)
+        .json({ success: false, message: "Upload failed", error: err.message });
+    }
+  }
+);
+
+// delivery proof photo
+router.post(
+  "/delivery-proof/:rentalId",
+  (req, res, next) => {
+    req.uploadFolder = "rentall/proofs/delivery"; // Set Cloudinary folder dynamically
+    next();
+  },
+  upload.single("photo"),
+  async (req, res) => {
+    try {
+      const rental = await Rental.findById(req.params.rentalId);
+      if (!rental) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Rental not found" });
+      }
+
+      rental.delivery.photoProof = req.file.path; // Cloudinary URL
+      await rental.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Photo uploaded to Cloudinary",
+        photoUrl: req.file.path,
+      });
+    } catch (err) {
+      console.error("Upload error:", err);
+      res.status(500).json({ message: "Upload failed", error: err.message });
+    }
+  }
+);
 
 module.exports = router;
