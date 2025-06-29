@@ -2,6 +2,7 @@ const Product = require("../models/Product");
 const KYC = require("../models/KYC");
 const User = require("../models/User"); //
 const Notification = require("../models/Notification");
+const Rental = require("../models/Rental");
 // Get all products
 const getAllProducts = async (req, res) => {
   try {
@@ -36,6 +37,43 @@ const getKYCSubmissions = async (req, res) => {
     res.status(200).json(kycs);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch KYC submissions", error });
+  }
+};
+
+// Admin confirm deliver
+const adminConfirmDelivery = async (req, res) => {
+  try {
+    const rental = await Rental.findById(req.params.rentalId);
+    if (!rental) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Rental not found" });
+    }
+
+    rental.delivery.status = "completed";
+    rental.delivery.confirmedByAdmin = true;
+
+    const now = new Date();
+    rental.actualStartDate = now;
+    rental.actualEndDate = new Date(
+      now.getTime() + rental.rentalDays * 24 * 60 * 60 * 1000
+    );
+
+    await rental.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery confirmed. Countdown started.",
+      actualStartDate: rental.actualStartDate,
+      actualEndDate: rental.actualEndDate,
+    });
+  } catch (err) {
+    console.error("Admin delivery confirm error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to confirm delivery",
+      error: err.message,
+    });
   }
 };
 
@@ -93,4 +131,5 @@ module.exports = {
   deleteProduct,
   getKYCSubmissions,
   updateKYCStatus,
+  adminConfirmDelivery,
 };

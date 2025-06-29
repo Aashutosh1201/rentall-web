@@ -11,7 +11,7 @@ const mongoose = require("mongoose");
 const Cart = require("../models/Cart");
 const Notification = require("../models/Notification");
 const Hub = require("../models/Hub");
-const upload = require("../middlewares/cloudinaryUploader");
+const upload = require("../middleware/cloudinaryUploader");
 
 // Function to generate unique purchase order ID
 function generatePurchaseOrderId() {
@@ -656,6 +656,132 @@ router.post(
   }
 );
 
+// Borrower Return the product
+router.post("/return-choice/:rentalId", verifyToken, async (req, res) => {
+  try {
+    const { method } = req.body; // "borrower-dropoff" or "company-pickup"
+
+    if (!["borrower-dropoff", "company-pickup"].includes(method)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid return method" });
+    }
+
+    const rental = await Rental.findById(req.params.rentalId);
+    if (!rental) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Rental not found" });
+    }
+
+    rental.returnLogistics.method = method;
+    rental.returnLogistics.status = "confirmed";
+    await rental.save();
+
+    res
+      .status(200)
+      .json({ success: true, message: "Return method set", rental });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: err.message });
+  }
+});
+
+// Return Proof photo
+router.post(
+  "/return-proof/:rentalId",
+  (req, res, next) => {
+    req.uploadFolder = "rentall/proofs/return-to-hub";
+    next();
+  },
+  upload.single("photo"),
+  async (req, res) => {
+    try {
+      const rental = await Rental.findById(req.params.rentalId);
+      if (!rental) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Rental not found" });
+      }
+
+      // ✅ Save return photo and confirm return
+      rental.returnLogistics.photoProof = req.file.path;
+      rental.returnLogistics.status = "completed";
+      rental.returnLogistics.confirmedByAdmin = true;
+
+      // ✅ LATE RETURN CHECK
+      const now = new Date();
+      const deadline = new Date(
+        rental.actualEndDate.getTime() + 2 * 60 * 60 * 1000
+      ); // 2-hour grace period
+
+      if (now > deadline) {
+        rental.lateReturn = {
+          isLate: true,
+          extraAmount: rental.totalAmount / rental.rentalDays, // or a fixed late fee
+          chargedExtra: false,
+        };
+      }
+
+      await rental.save();
+
+      res.status(200).json({
+        success: true,
+        message: rental.lateReturn?.isLate
+          ? "Return uploaded. LATE — extra charge applied."
+          : "Return uploaded and confirmed.",
+        lateReturn: rental.lateReturn,
+        url: req.file.path,
+      });
+    } catch (err) {
+      res.status(500).json({
+        success: false,
+        message: "Upload failed",
+        error: err.message,
+      });
+    }
+  }
+);
+
+// Lender Pickup or Company Delivery Back to Lender
+router.post(
+  "/return-to-lender-choice/:rentalId",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const { method } = req.body; // "lender-pickup" or "company-delivery"
+
+      if (!["lender-pickup", "company-delivery"].includes(method)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid method" });
+      }
+
+      const rental = await Rental.findById(req.params.rentalId);
+      if (!rental) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Rental not found" });
+      }
+
+      rental.returnLogistics.returnToLender.method = method;
+      rental.returnLogistics.returnToLender.status = "confirmed";
+      await rental.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Return to lender method saved",
+        rental,
+      });
+    } catch (err) {
+      res
+        .status(500)
+        .json({ success: false, message: "Server error", error: err.message });
+    }
+  }
+);
+
 // delivery proof photo
 router.post(
   "/delivery-proof/:rentalId",
@@ -687,5 +813,141 @@ router.post(
     }
   }
 );
+
+// Upload Final Return Photo (Hub ➝ Lender)
+router.post(
+  "/return-to-lender-proof/:rentalId",
+  (req, res, next) => {
+    req.uploadFolder = "rentall/proofs/return-to-lender";
+    next();
+  },
+  upload.single("photo"),
+  async (req, res) => {
+    try {
+      const rental = await Rental.findById(req.params.rentalId);
+      if (!rental) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Rental not found" });
+      }
+
+      rental.returnLogistics.returnToLender.photoProof = req.file.path;
+      rental.returnLogistics.returnToLender.status = "completed";
+      rental.returnLogistics.returnToLender.confirmedByAdmin = true;
+
+      // Final status reset
+      const product = await Product.findById(rental.productId);
+      if (product) {
+        product.status = "free";
+        await product.save();
+      }
+
+      await rental.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Return to lender confirmed",
+        url: req.file.path,
+      });
+    } catch (err) {
+      res
+        .status(500)
+        .json({ success: false, message: "Upload failed", error: err.message });
+    }
+  }
+);
+
+// Lender approves or rejects extention
+router.post("/respond-extension/:rentalId", verifyToken, async (req, res) => {
+  try {
+    const { decision } = req.body; // "approved" or "rejected"
+    const rental = await Rental.findById(req.params.rentalId);
+
+    if (!rental || rental.extensionRequest.status !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "No extension request to respond to.",
+      });
+    }
+
+    if (decision === "approved") {
+      rental.extensionRequest.status = "approved";
+
+      // Optional: create new rental automatically (or notify admin)
+      // OR just extend actualEndDate:
+      rental.actualEndDate = new Date(
+        rental.actualEndDate.getTime() +
+          rental.extensionRequest.requestedDays * 24 * 60 * 60 * 1000
+      );
+    } else if (decision === "rejected") {
+      rental.extensionRequest.status = "rejected";
+    } else {
+      return res.status(400).json({ message: "Invalid decision" });
+    }
+
+    await rental.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Extension ${decision}`,
+      rental,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to respond to extension",
+      error: err.message,
+    });
+  }
+});
+
+// Request extention
+router.post("/request-extension/:rentalId", verifyToken, async (req, res) => {
+  try {
+    const { requestedDays } = req.body;
+    const rental = await Rental.findById(req.params.rentalId);
+
+    if (!rental) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Rental not found" });
+    }
+
+    const now = new Date();
+    const deadline = new Date(
+      rental.actualEndDate.getTime() - 12 * 60 * 60 * 1000
+    );
+
+    if (now > deadline) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Extension requests must be made at least 12 hours before the rental ends.",
+      });
+    }
+
+    rental.extensionRequest = {
+      requestedDays,
+      status: "pending",
+      createdAt: new Date(),
+    };
+
+    await rental.save();
+
+    // Optionally notify the lender...
+
+    res.status(200).json({
+      success: true,
+      message: "Extension request submitted.",
+      extensionRequest: rental.extensionRequest,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to request extension",
+      error: err.message,
+    });
+  }
+});
 
 module.exports = router;

@@ -102,6 +102,50 @@ const rentalSchema = new mongoose.Schema(
       photoProof: String, // URL of photo during handover
       confirmedByAdmin: { type: Boolean, default: false },
     },
+    returnLogistics: {
+      method: {
+        type: String,
+        enum: ["borrower-dropoff", "company-pickup", "pending"],
+        default: "pending",
+      },
+      status: {
+        type: String,
+        enum: ["pending", "confirmed", "completed"],
+        default: "pending",
+      },
+      photoProof: String,
+      confirmedByAdmin: { type: Boolean, default: false },
+      returnToLender: {
+        method: {
+          type: String,
+          enum: ["company-delivery", "lender-pickup", "pending"],
+          default: "pending",
+        },
+        status: {
+          type: String,
+          enum: ["pending", "confirmed", "completed"],
+          default: "pending",
+        },
+        photoProof: String,
+        confirmedByAdmin: { type: Boolean, default: false },
+      },
+    },
+    actualStartDate: Date,
+    actualEndDate: Date,
+    lateReturn: {
+      isLate: { type: Boolean, default: false },
+      chargedExtra: { type: Boolean, default: false },
+      extraAmount: { type: Number, default: 0 },
+    },
+    extensionRequest: {
+      requestedDays: Number,
+      status: {
+        type: String,
+        enum: ["none", "pending", "approved", "rejected"],
+        default: "none",
+      },
+      createdAt: Date,
+    },
   },
   {
     timestamps: true,
