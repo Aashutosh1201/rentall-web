@@ -126,10 +126,86 @@ const updateKYCStatus = async (req, res) => {
   }
 };
 
+// get all rentals
+const getAllRentals = async (req, res) => {
+  try {
+    const rentals = await Rental.find()
+      .populate("productId")
+      .populate("userId");
+    res.status(200).json(rentals);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch rentals", error });
+  }
+};
+
+// product rent extention
+const getExtensionRequests = async (req, res) => {
+  try {
+    const rentals = await Rental.find({
+      "extensionRequest.status": { $exists: true },
+    })
+      .populate("productId")
+      .populate("userId");
+
+    res.status(200).json(rentals);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Failed to fetch extension requests", error });
+  }
+};
+
+// Lender approves or rejects extention
+const respondToExtension = async (req, res) => {
+  try {
+    const { decision } = req.body; // "approved" or "rejected"
+    const rental = await Rental.findById(req.params.rentalId);
+
+    if (!rental || rental.extensionRequest.status !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "No extension request to respond to.",
+      });
+    }
+
+    if (decision === "approved") {
+      rental.extensionRequest.status = "approved";
+
+      // Optional: create new rental automatically (or notify admin)
+      // OR just extend actualEndDate:
+      rental.actualEndDate = new Date(
+        rental.actualEndDate.getTime() +
+          rental.extensionRequest.requestedDays * 24 * 60 * 60 * 1000
+      );
+    } else if (decision === "rejected") {
+      rental.extensionRequest.status = "rejected";
+    } else {
+      return res.status(400).json({ message: "Invalid decision" });
+    }
+
+    await rental.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Extension ${decision}`,
+      rental,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to respond to extension",
+      error: err.message,
+    });
+  }
+};
+
 module.exports = {
   getAllProducts,
   deleteProduct,
   getKYCSubmissions,
   updateKYCStatus,
   adminConfirmDelivery,
+  getExtensionRequests,
+  getAllRentals,
+  respondToExtension,
 };

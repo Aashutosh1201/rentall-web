@@ -4,6 +4,9 @@ const {
   deleteProduct,
   getKYCSubmissions,
   updateKYCStatus,
+  respondToExtension,
+  getExtensionRequests,
+  getAllRentals,
 } = require("../controllers/adminController");
 const { verifyToken } = require("../middleware/authMiddleware");
 const router = express.Router();
@@ -25,4 +28,11 @@ router.post(
   verifyToken, // ✅ Protect this route with token or admin role
   adminConfirmDelivery
 );
+
+router.get("/rentals", getAllRentals);
+
+router.post("/respond-extension/:rentalId", respondToExtension);
+
+router.get("/extension-requests", getExtensionRequests);
+
 module.exports = router;

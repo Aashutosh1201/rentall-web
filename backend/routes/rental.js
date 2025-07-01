@@ -857,50 +857,6 @@ router.post(
   }
 );
 
-// Lender approves or rejects extention
-router.post("/respond-extension/:rentalId", verifyToken, async (req, res) => {
-  try {
-    const { decision } = req.body; // "approved" or "rejected"
-    const rental = await Rental.findById(req.params.rentalId);
-
-    if (!rental || rental.extensionRequest.status !== "pending") {
-      return res.status(400).json({
-        success: false,
-        message: "No extension request to respond to.",
-      });
-    }
-
-    if (decision === "approved") {
-      rental.extensionRequest.status = "approved";
-
-      // Optional: create new rental automatically (or notify admin)
-      // OR just extend actualEndDate:
-      rental.actualEndDate = new Date(
-        rental.actualEndDate.getTime() +
-          rental.extensionRequest.requestedDays * 24 * 60 * 60 * 1000
-      );
-    } else if (decision === "rejected") {
-      rental.extensionRequest.status = "rejected";
-    } else {
-      return res.status(400).json({ message: "Invalid decision" });
-    }
-
-    await rental.save();
-
-    res.status(200).json({
-      success: true,
-      message: `Extension ${decision}`,
-      rental,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to respond to extension",
-      error: err.message,
-    });
-  }
-});
-
 // Request extention
 router.post("/request-extension/:rentalId", verifyToken, async (req, res) => {
   try {
