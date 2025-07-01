@@ -16,6 +16,20 @@ const rentalSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
+    delivery: {
+      method: {
+        type: String,
+        enum: ["self-pickup", "company-delivery", "pending"],
+        default: "pending",
+      },
+      status: {
+        type: String,
+        enum: ["pending", "confirmed", "completed"],
+        default: "pending",
+      },
+      photoProof: String, // proof of handover
+      confirmedByAdmin: { type: Boolean, default: false },
+    },
 
     // Dates and duration
     startDate: {
@@ -63,6 +77,74 @@ const rentalSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "completed", "failed"],
       default: "completed",
+    },
+    deliveryMethod: {
+      type: String,
+      enum: ["self-pickup", "delivery"],
+      default: "self-pickup",
+    },
+    hubId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Hub",
+      required: true,
+    },
+    pickup: {
+      method: {
+        type: String,
+        enum: ["lender-dropoff", "company-pickup", "pending"],
+        default: "pending",
+      },
+      status: {
+        type: String,
+        enum: ["pending", "confirmed", "completed"],
+        default: "pending",
+      },
+      photoProof: String, // URL of photo during handover
+      confirmedByAdmin: { type: Boolean, default: false },
+    },
+    returnLogistics: {
+      method: {
+        type: String,
+        enum: ["borrower-dropoff", "company-pickup", "pending"],
+        default: "pending",
+      },
+      status: {
+        type: String,
+        enum: ["pending", "confirmed", "completed"],
+        default: "pending",
+      },
+      photoProof: String,
+      confirmedByAdmin: { type: Boolean, default: false },
+      returnToLender: {
+        method: {
+          type: String,
+          enum: ["company-delivery", "lender-pickup", "pending"],
+          default: "pending",
+        },
+        status: {
+          type: String,
+          enum: ["pending", "confirmed", "completed"],
+          default: "pending",
+        },
+        photoProof: String,
+        confirmedByAdmin: { type: Boolean, default: false },
+      },
+    },
+    actualStartDate: Date,
+    actualEndDate: Date,
+    lateReturn: {
+      isLate: { type: Boolean, default: false },
+      chargedExtra: { type: Boolean, default: false },
+      extraAmount: { type: Number, default: 0 },
+    },
+    extensionRequest: {
+      requestedDays: Number,
+      status: {
+        type: String,
+        enum: ["none", "pending", "approved", "rejected"],
+        default: "none",
+      },
+      createdAt: Date,
     },
   },
   {

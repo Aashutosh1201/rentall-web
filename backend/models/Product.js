@@ -21,6 +21,11 @@ const productSchema = new mongoose.Schema(
     imageUrl: String, // for now just URL
     reviews: [reviewSchema],
     averageRating: { type: Number, default: 0 },
+    status: {
+      type: String,
+      enum: ["free", "pending", "booked"],
+      default: "free",
+    },
   },
   {
     timestamps: true,

@@ -4,11 +4,17 @@ const {
   deleteProduct,
   getKYCSubmissions,
   updateKYCStatus,
+  respondToExtension,
+  getExtensionRequests,
+  getAllRentals,
 } = require("../controllers/adminController");
 
 const Category = require("../models/Category");
 
+const { verifyToken } = require("../middleware/authMiddleware");
 const router = express.Router();
+const { adminConfirmDelivery } = require("../controllers/adminController");
+// Route to get all products
 
 // ----- PRODUCT ROUTES -----
 router.get("/products", getAllProducts);
@@ -17,6 +23,18 @@ router.delete("/products/:id", deleteProduct);
 // ----- KYC ROUTES -----
 router.get("/kyc", getKYCSubmissions);
 router.patch("/kyc/:id", updateKYCStatus);
+
+router.post(
+  "/admin/confirm-delivery/:rentalId",
+  verifyToken, // ✅ Protect this route with token or admin role
+  adminConfirmDelivery
+);
+
+router.get("/rentals", getAllRentals);
+
+router.post("/respond-extension/:rentalId", respondToExtension);
+
+router.get("/extension-requests", getExtensionRequests);
 
 // ----- CATEGORY ROUTES -----
 

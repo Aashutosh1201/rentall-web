@@ -52,11 +52,15 @@ const Login = () => {
           : authenticated;
 
       if (isLoggedIn && user?.id) {
-        const redirectPath =
-          localStorage.getItem("redirectAfterLogin") || "/dashboard";
-        console.log("🐛 REDIRECTING TO:", redirectPath);
-        localStorage.removeItem("redirectAfterLogin");
-        navigate(redirectPath, { replace: true });
+        // Check if KYC is submitted
+        if (user.kycStatus === "not_submitted" || !user.kycStatus) {
+          navigate("/kyc-info", { replace: true });
+        } else {
+          const redirectPath =
+            localStorage.getItem("redirectAfterLogin") || "/dashboard";
+          localStorage.removeItem("redirectAfterLogin");
+          navigate(redirectPath, { replace: true });
+        }
       }
     }
   }, [
@@ -117,10 +121,15 @@ const Login = () => {
               // Wait for auth state to update before redirecting
               setTimeout(() => {
                 const redirectPath =
-                  localStorage.getItem("redirectAfterLogin") || "/dashboard";
-                console.log("🐛 Google redirecting to:", redirectPath);
+                  user?.kycStatus === "not_submitted" || !user?.kycStatus
+                    ? "/kyc-info"
+                    : localStorage.getItem("redirectAfterLogin") ||
+                      "/dashboard";
+
+                console.log("🐛 Google final redirect path:", redirectPath);
                 localStorage.removeItem("redirectAfterLogin");
                 navigate(redirectPath, { replace: true });
+
                 setGoogleRedirectInProgress(false);
               }, 500); // Increased delay
             } else {
@@ -183,8 +192,11 @@ const Login = () => {
             user: user?.id,
           });
           const redirectPath =
-            localStorage.getItem("redirectAfterLogin") || "/dashboard";
-          console.log("🐛 Redirecting to:", redirectPath);
+            user?.kycStatus === "not_submitted" || !user?.kycStatus
+              ? "/kyc-info"
+              : localStorage.getItem("redirectAfterLogin") || "/dashboard";
+
+          console.log("🐛 Final redirect path:", redirectPath);
           localStorage.removeItem("redirectAfterLogin");
           navigate(redirectPath, { replace: true });
         }, 100);
