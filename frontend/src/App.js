@@ -23,6 +23,8 @@ import RequestDetail from "./pages/RequestDetail";
 import MyOffersPage from "./pages/MyOffersPage";
 import Profile from "./pages/Profile";
 import ViewAllNotifications from "./pages/ViewAllNotifications";
+import KYCStatusModal from "./components/KYCStatusModal";
+import { useAuth } from "./context/AuthContext";
 import {
   DashboardHome,
   MyOrders,
@@ -89,6 +91,13 @@ const NotFound = () => (
 );
 
 function App() {
+  const {
+    kycModalOpen,
+    kycStatus,
+    closeKycModal,
+    handleKycResubmit,
+    authenticated,
+  } = useAuth();
   return (
     <Router>
       <ErrorBoundary>
@@ -310,6 +319,16 @@ function App() {
           <Route path="/payment/callback" element={<PaymentCallback />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        {/* KYC Status Modal - shows globally when needed */}
+        {authenticated && (
+          <KYCStatusModal
+            isOpen={kycModalOpen}
+            onClose={closeKycModal}
+            status={kycStatus}
+            onResubmitKYC={handleKycResubmit}
+            canClose={kycStatus !== "pending"} // Pending modal can't be permanently closed
+          />
+        )}
       </ErrorBoundary>
     </Router>
   );

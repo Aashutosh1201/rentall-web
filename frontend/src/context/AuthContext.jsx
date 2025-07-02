@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { jwtDecode } from "jwt-decode"; // Corrected import
+import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 
 const AuthContext = createContext();
@@ -9,15 +9,48 @@ export const AuthProvider = ({ children }) => {
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Admin email fetched from environment variables
+  // KYC Modal States
+  const [kycModalOpen, setKycModalOpen] = useState(false);
+  const [kycStatus, setKycStatus] = useState(null);
+  const [kycStatusShownOnce, setKycStatusShownOnce] = useState({
+    approved: false,
+    rejected: false,
+  });
+
+  // Track if pending modal has been shown in current session
+  const [pendingModalShownThisSession, setPendingModalShownThisSession] =
+    useState(false);
+
   const ADMIN_EMAIL = process.env.REACT_APP_ADMIN_EMAIL;
+
+  // Load KYC status shown flags from localStorage
+  useEffect(() => {
+    const savedFlags = localStorage.getItem("kycStatusShownFlags");
+    if (savedFlags) {
+      try {
+        setKycStatusShownOnce(JSON.parse(savedFlags));
+      } catch (e) {
+        console.error("Error parsing KYC status flags:", e);
+      }
+    }
+  }, []);
+
+  // Save KYC status shown flags to localStorage
+  const updateKycStatusShownFlags = (status) => {
+    const newFlags = {
+      ...kycStatusShownOnce,
+      [status]: true,
+    };
+    setKycStatusShownOnce(newFlags);
+    localStorage.setItem("kycStatusShownFlags", JSON.stringify(newFlags));
+  };
 
   useEffect(() => {
     const fetchAndSetUser = async () => {
       const token = localStorage.getItem("token");
       if (!token) {
-        setUser(null); // ✅ token is gone → logout
-        setAuthenticated(false); // ✅ Make sure authenticated is false
+        setUser(null);
+        setAuthenticated(false);
         setLoading(false);
         return;
       }
@@ -25,7 +58,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const decoded = validateToken(token);
         if (!decoded) {
-          setUser(null); // ✅ token is invalid → logout
+          setUser(null);
           setAuthenticated(false);
           setLoading(false);
           return;
@@ -41,21 +74,77 @@ export const AuthProvider = ({ children }) => {
         }
         userFromDB.id = userFromDB._id;
         localStorage.setItem("user", JSON.stringify(userFromDB));
-        setUser(userFromDB); // ✅ valid token → set full user
-        setAuthenticated(true); // ✅ Set authenticated to true
+        setUser(userFromDB);
+        setAuthenticated(true);
+
+        // Check KYC status after user is set - only on initial load
+        await checkAndShowKycModal(userFromDB.email, token, true);
       } catch (err) {
         console.error("❌ Error fetching user:", err.message);
-        setUser(null); // ✅ request failed → treat as unauthenticated
-        setAuthenticated(false); // ✅ Make sure authenticated is false
+        setUser(null);
+        setAuthenticated(false);
       } finally {
         setLoading(false);
       }
     };
 
     fetchAndSetUser();
-  }, []); // ✅ important to keep dependency array empty
+  }, []);
 
-  // Validate token and check expiration
+  // Function to check KYC status and show modal if needed
+  const checkAndShowKycModal = async (
+    userEmail,
+    token,
+    isInitialLoad = false
+  ) => {
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/kyc/status/${userEmail}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.error("Failed to fetch KYC status");
+        return;
+      }
+
+      const kycData = await response.json();
+
+      if (kycData.exists && kycData.status) {
+        const status = kycData.status;
+        setKycStatus(status);
+
+        // Show modal based on status and whether it's been shown before
+        if (status === "pending") {
+          // Only show pending modal on initial load or first login, and only once per session
+          if (isInitialLoad && !pendingModalShownThisSession) {
+            setKycModalOpen(true);
+            setPendingModalShownThisSession(true);
+          }
+        } else if (status === "approved" && !kycStatusShownOnce.approved) {
+          // Show approved modal only once
+          if (isInitialLoad) {
+            setKycModalOpen(true);
+          }
+        } else if (status === "rejected" && !kycStatusShownOnce.rejected) {
+          // Show rejected modal only once
+          if (isInitialLoad) {
+            setKycModalOpen(true);
+          }
+        }
+      } else {
+        // No KYC found - you might want to handle this case
+        console.log("No KYC found for user");
+      }
+    } catch (error) {
+      console.error("Error checking KYC status:", error);
+    }
+  };
+
   const validateToken = (token) => {
     try {
       const decoded = jwtDecode(token);
@@ -77,7 +166,7 @@ export const AuthProvider = ({ children }) => {
       const decodedUser = validateToken(token);
       if (!decodedUser) {
         console.log("🐛 Token validation failed");
-        return false;
+        return { success: false, user: null };
       }
 
       localStorage.setItem("token", token);
@@ -94,14 +183,11 @@ export const AuthProvider = ({ children }) => {
         throw new Error("Invalid user data received");
       }
 
-      // Ensure user has id field
       userFromDB.id = userFromDB._id;
-
       localStorage.setItem("user", JSON.stringify(userFromDB));
 
-      // 🔥 THIS IS THE KEY FIX - Set both user and authenticated state
       setUser(userFromDB);
-      setAuthenticated(true); // ✅ This was missing!
+      setAuthenticated(true);
 
       console.log("🐛 AuthContext login - success, user set:", {
         userId: userFromDB.id,
@@ -109,33 +195,55 @@ export const AuthProvider = ({ children }) => {
         authenticated: true,
       });
 
-      return true;
+      // Check KYC status after successful login - this is first page after login
+      await checkAndShowKycModal(userFromDB.email, token, true);
+
+      return { success: true, user: userFromDB };
     } catch (err) {
       console.error("🐛 AuthContext login error:", err);
-      // Clean up on error
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       setUser(null);
       setAuthenticated(false);
-      return false;
+      return { success: false, user: null, error: err.message };
     }
   };
 
   const logout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("user"); // ✅ Also remove user from localStorage
+    localStorage.removeItem("user");
+    localStorage.removeItem("kycStatusShownFlags"); // Clear KYC flags on logout
     setUser(null);
-    setAuthenticated(false); // ✅ Set authenticated to false
+    setAuthenticated(false);
+    setKycModalOpen(false);
+    setKycStatus(null);
+    setKycStatusShownOnce({ approved: false, rejected: false });
+    // Reset pending modal session flag
+    setPendingModalShownThisSession(false);
   };
 
-  // Check if user is authenticated
+  const closeKycModal = () => {
+    if (kycStatus && (kycStatus === "approved" || kycStatus === "rejected")) {
+      // Mark this status as shown
+      updateKycStatusShownFlags(kycStatus);
+    }
+    setKycModalOpen(false);
+  };
+
+  const handleKycResubmit = () => {
+    // Mark rejected as shown since user is taking action
+    updateKycStatusShownFlags("rejected");
+    setKycModalOpen(false);
+    // Navigate to KYC form or handle resubmission
+    window.location.href = "/kyc-info"; // or use your navigation method
+  };
+
   const isAuthenticated = () => {
     return authenticated;
   };
 
-  // Check if the user is admin based on email
   const isAdmin = () => {
-    return user?.email === ADMIN_EMAIL; // Compare user email with admin email
+    return user?.email === ADMIN_EMAIL;
   };
 
   const getToken = () => {
@@ -152,6 +260,12 @@ export const AuthProvider = ({ children }) => {
     authenticated,
     setUser,
     getToken,
+    // KYC Modal related
+    kycModalOpen,
+    kycStatus,
+    closeKycModal,
+    handleKycResubmit,
+    checkAndShowKycModal,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -99,41 +99,33 @@ const Login = () => {
             );
             setGoogleRedirectInProgress(true);
 
-            const success = await login(token);
-            if (success) {
-              try {
-                const res = await fetch(
-                  `http://localhost:8000/api/kyc/status/${user.email}`
-                );
-                const data = await res.json();
+            try {
+              // Login with the token - AuthContext will handle KYC modal display
+              const loginResult = await login(token);
+              console.log("🐛 Google login result:", loginResult);
 
-                const redirectPath = data.exists ? "/dashboard" : "/kyc-info";
-                navigate(redirectPath, { replace: true });
-              } catch (error) {
-                console.error("Error checking KYC status:", error);
-                navigate("/kyc-info", { replace: true }); // fallback to KYC
-              }
-            }
-
-            console.log("🐛 Google login success:", success);
-
-            if (success) {
-              // Wait for auth state to update before redirecting
-              setTimeout(() => {
+              if (loginResult.success && loginResult.user) {
                 const redirectPath =
-                  user?.kycStatus === "not_submitted" || !user?.kycStatus
+                  loginResult.user.kycStatus === "not_submitted" ||
+                  !loginResult.user.kycStatus
                     ? "/kyc-info"
                     : localStorage.getItem("redirectAfterLogin") ||
                       "/dashboard";
 
-                console.log("🐛 Google final redirect path:", redirectPath);
+                console.log(
+                  "🐛 Login successful, redirecting to",
+                  redirectPath
+                );
                 localStorage.removeItem("redirectAfterLogin");
                 navigate(redirectPath, { replace: true });
-
-                setGoogleRedirectInProgress(false);
-              }, 500); // Increased delay
-            } else {
+              } else {
+                const errorMsg = loginResult.error || "Authentication failed";
+                setError(errorMsg);
+              }
+            } catch (loginError) {
+              console.error("🐛 Google login error:", loginError);
               setError("Failed to login with Google");
+            } finally {
               setGoogleRedirectInProgress(false);
             }
           }
@@ -143,9 +135,18 @@ const Login = () => {
       };
 
       window.addEventListener("message", handleMessage);
+
+      // Handle popup closed
+      const checkPopupClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkPopupClosed);
+          window.removeEventListener("message", handleMessage);
+          setGoogleRedirectInProgress(false);
+        }
+      }, 1000);
     } catch (err) {
       console.error("Google Login Error:", err);
-      setError("Failed to login with Google");
+      setError("Failed to initialize Google login");
       setGoogleRedirectInProgress(false);
     }
   };
