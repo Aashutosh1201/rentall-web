@@ -153,4 +153,36 @@ router.post("/:id/counter", verifyToken, upload.single("image"), async (req, res
   }
 });
 
+/**
+ * PATCH /api/requests/:requestId/accept-offer/:offerId
+ * Accept one counter offer, reject all others
+ */
+router.patch("/:requestId/accept-offer/:offerId", verifyToken, async (req, res) => {
+  try {
+    const { requestId, offerId } = req.params;
+
+    const request = await Request.findById(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    if (request.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    request.counterOffers = request.counterOffers.map((offer) => {
+      const status = offer._id.toString() === offerId ? "accepted" : "rejected";
+      return { ...offer.toObject(), status };
+    });
+
+    await request.save();
+
+    const updatedRequest = await Request.findById(requestId).populate("counterOffers.user", "fullName");
+    res.json(updatedRequest);
+  } catch (err) {
+    console.error("Accepting offer failed:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;

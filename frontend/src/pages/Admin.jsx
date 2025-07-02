@@ -3,16 +3,31 @@ import axiosInstance from "../utils/axiosInstance";
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("products");
+  const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [kycSubmissions, setKycSubmissions] = useState([]);
   const [users, setUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [rentals, setRentals] = useState([]);
   const [extensions, setExtensions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  // New category form state
+  const [newCategory, setNewCategory] = useState({
+    label: "",
+    icon: "",
+    description: "",
+  });
+  const [categoryError, setCategoryError] = useState("");
 
   useEffect(() => {
     fetchData();
+  }, [activeTab]);
+
+  useEffect(() => {
+    setSearchQuery("");
   }, [activeTab]);
 
   const fetchData = async () => {
@@ -24,6 +39,7 @@ const Admin = () => {
       if (activeTab === "users") await fetchUsers();
       if (activeTab === "rentals") await fetchRentals();
       if (activeTab === "extensions") await fetchExtensions();
+      if (activeTab === "categories") await fetchCategories();
     } catch (err) {
       console.error(err);
       setError("Error fetching data. Please try again.");
@@ -55,6 +71,11 @@ const Admin = () => {
   const fetchExtensions = async () => {
     const { data } = await axiosInstance.get("/admin/extension-requests");
     setExtensions(data);
+  };
+
+  const fetchCategories = async () => {
+    const { data } = await axiosInstance.get("/admin/categories");
+    setCategories(data);
   };
 
   // Product management
@@ -98,6 +119,39 @@ const Admin = () => {
     }
   };
 
+  // Category management
+  const deleteCategory = async (id) => {
+    try {
+      await axiosInstance.delete(`/admin/categories/${id}`);
+      setCategories((prev) => prev.filter((cat) => cat._id !== id));
+    } catch (err) {
+      console.error(err);
+      setCategoryError("Failed to delete category.");
+    }
+  };
+
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    const exists = categories.some(
+      (cat) =>
+        cat.label.toLowerCase() === newCategory.label.trim().toLowerCase()
+    );
+    if (exists) {
+      setCategoryError("Category with this label already exists.");
+      return;
+    }
+
+    try {
+      const res = await axiosInstance.post("/admin/categories", newCategory);
+      setCategories((prev) => [...prev, res.data]);
+      setNewCategory({ label: "", icon: "", description: "" });
+      setCategoryError("");
+    } catch (err) {
+      console.error(err);
+      setCategoryError("Failed to add category.");
+    }
+  };
+
   // Rental management
   const confirmReturn = async (id) => {
     try {
@@ -131,6 +185,28 @@ const Admin = () => {
     }
   };
 
+  // Filter functions
+  const filteredProducts = products.filter(
+    (p) =>
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.location.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredKyc = kycSubmissions.filter(
+    (k) =>
+      k.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      k.phone.includes(searchQuery) ||
+      k.idNumber.includes(searchQuery)
+  );
+
+  const filteredUsers = users.filter(
+    (u) =>
+      u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.phone.includes(searchQuery)
+  );
+
   const renderBadge = (text, color) => (
     <span
       className={`inline-block px-2 py-1 text-xs font-semibold rounded-full text-white`}
@@ -146,11 +222,11 @@ const Admin = () => {
     { id: "extensions", label: "Extension Requests" },
     { id: "kyc", label: "KYC Submissions" },
     { id: "users", label: "Users" },
+    { id: "categories", label: "Categories" },
   ];
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      {/* Header */}
+    <div className="p-6 bg-gray-100 min-h-screen relative">
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
         <button className="bg-blue-500 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-600">
@@ -175,29 +251,27 @@ const Admin = () => {
         ))}
       </nav>
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
+      {error && <div className="text-red-500 mb-4">{error}</div>}
+      {loading && <div className="text-center">Loading...</div>}
+
+      {!loading && activeTab !== "categories" && (
+        <input
+          type="text"
+          placeholder={`Search ${activeTab.toLowerCase()}...`}
+          className="mb-6 px-4 py-2 border rounded w-full sm:w-1/2"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       )}
 
-      {/* Loading Spinner */}
-      {loading && (
-        <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <p className="mt-2 text-gray-600">Loading...</p>
-        </div>
-      )}
-
-      {/* Products Tab */}
+      {/* Products */}
       {!loading && activeTab === "products" && (
         <section>
           <h2 className="text-2xl font-semibold mb-4 text-gray-700">
             Products
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <div
                 key={product._id}
                 className="bg-white p-4 rounded-lg shadow hover:shadow-lg transition"
@@ -250,7 +324,7 @@ const Admin = () => {
             KYC Submissions
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {kycSubmissions.map((kyc) => (
+            {filteredKyc.map((kyc) => (
               <div
                 key={kyc._id}
                 className="bg-white p-4 rounded-lg shadow hover:shadow-lg transition"
@@ -340,7 +414,7 @@ const Admin = () => {
         <section>
           <h2 className="text-2xl font-semibold mb-4 text-gray-700">Users</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <div
                 key={user._id}
                 className="bg-white p-4 rounded-lg shadow hover:shadow-lg transition"
@@ -366,6 +440,87 @@ const Admin = () => {
                   onClick={() => deleteUser(user._id)}
                 >
                   Delete User
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Categories Tab */}
+      {!loading && activeTab === "categories" && (
+        <section>
+          <h2 className="text-2xl font-semibold mb-4 text-gray-700">
+            Categories
+          </h2>
+
+          <form
+            onSubmit={handleAddCategory}
+            className="mb-6 bg-white p-4 rounded shadow space-y-4"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <input
+                type="text"
+                placeholder="Label"
+                value={newCategory.label}
+                onChange={(e) =>
+                  setNewCategory({ ...newCategory, label: e.target.value })
+                }
+                required
+                className="border px-4 py-2 rounded"
+              />
+              <input
+                type="text"
+                placeholder="Icon URL or name"
+                value={newCategory.icon}
+                onChange={(e) =>
+                  setNewCategory({ ...newCategory, icon: e.target.value })
+                }
+                required
+                className="border px-4 py-2 rounded"
+              />
+              <input
+                type="text"
+                placeholder="Description (optional)"
+                value={newCategory.description}
+                onChange={(e) =>
+                  setNewCategory({
+                    ...newCategory,
+                    description: e.target.value,
+                  })
+                }
+                className="border px-4 py-2 rounded"
+              />
+            </div>
+            {categoryError && <p className="text-red-500">{categoryError}</p>}
+            <button
+              type="submit"
+              className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
+            >
+              Add Category
+            </button>
+          </form>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {categories.map((cat) => (
+              <div
+                key={cat._id}
+                className="bg-white p-4 rounded shadow flex flex-col justify-between"
+              >
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                    <span>{cat.label}</span>
+                    <span className="text-sm text-gray-500">{cat.icon}</span>
+                  </h3>
+                  {cat.description && (
+                    <p className="text-gray-600 mt-2">{cat.description}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => deleteCategory(cat._id)}
+                  className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                >
+                  Delete
                 </button>
               </div>
             ))}
@@ -562,6 +717,21 @@ const Admin = () => {
             ))}
           </div>
         </section>
+      )}
+
+      {/* Fullscreen image preview modal */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black bg-opacity-75 flex justify-center items-center"
+          onClick={() => setSelectedImage(null)}
+        >
+          <img
+            src={selectedImage}
+            alt="Zoomed"
+            className="max-w-3xl max-h-[90vh] rounded shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
       )}
     </div>
   );

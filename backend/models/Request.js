@@ -6,6 +6,11 @@ const counterOfferSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   message: { type: String },
   image: { type: String },
+  status: {
+    type: String,
+    enum: ["pending", "accepted", "rejected"],
+    default: "pending",
+  },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -16,11 +21,10 @@ const requestSchema = new mongoose.Schema(
     price: { type: Number, required: true },
     location: { type: String, required: true },
     category: { type: String, required: true },
-    image: { type: String }, // from Cloudinary
+    image: { type: String }, // Cloudinary image URL
     needDates: [{ type: String, required: true }],
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
-    // ✅ Add this:
     counterOffers: {
       type: [counterOfferSchema],
       default: [],
