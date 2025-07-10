@@ -8,6 +8,7 @@ import {
   FaTimesCircle,
   FaExclamationTriangle,
 } from "react-icons/fa";
+import { ToastContainer, toast } from "react-toastify";
 
 // Image component with proper fallback handling
 const ImageWithFallback = ({ src, alt, className }) => {
@@ -46,6 +47,37 @@ export default function RentalHistory() {
     overdue: 0,
     total: 0,
   });
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
+  const [newEndDate, setNewEndDate] = useState("");
+  const [extensionMessage, setExtensionMessage] = useState("");
+  const [selectedRentalId, setSelectedRentalId] = useState(null);
+
+  const handleExtensionRequest = async (rentalId) => {
+    try {
+      const res = await fetch(
+        `${getApiUrl()}/api/rentals/${rentalId}/request-extension`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ newEndDate, message: extensionMessage }),
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Extension request sent!");
+        setShowExtensionModal(false);
+        fetchRentals();
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Failed to request extension");
+      }
+    } catch (err) {
+      toast.error("Server error.");
+    }
+  };
 
   // Get the correct API base URL
   const getApiUrl = () => {
@@ -361,6 +393,11 @@ export default function RentalHistory() {
               const paymentStatus = getPaymentStatus(rental);
               const paymentMethod = getPaymentMethod(rental);
 
+              const isExtensionEligible =
+                rental.status === "active" &&
+                !rental.isOverdue &&
+                !rental.extensionRequest?.status;
+
               return (
                 <div
                   key={rental._id || rental.id}
@@ -370,11 +407,9 @@ export default function RentalHistory() {
                     <div className="flex items-start space-x-4 flex-1">
                       <ImageWithFallback
                         src={
-                          productInfo.imageUrl
-                            ? productInfo.imageUrl.startsWith("http")
-                              ? productInfo.imageUrl
-                              : `${getApiUrl()}${productInfo.imageUrl}`
-                            : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K"
+                          productInfo.imageUrl?.startsWith("http")
+                            ? productInfo.imageUrl
+                            : `${getApiUrl()}${productInfo.imageUrl}`
                         }
                         alt={productInfo.title}
                         className="w-16 h-16 object-cover rounded-lg"
@@ -393,15 +428,9 @@ export default function RentalHistory() {
                                 {formatDate(rental.startDate)} -{" "}
                                 {formatDate(rental.endDate)}
                               </span>
+                              <span>{rental.rentalDays || 0} days</span>
                               <span>
-                                {rental.rentalDays || rental.duration || 0} days
-                              </span>
-                              <span>
-                                Rs.{" "}
-                                {rental.totalAmount ||
-                                  rental.total ||
-                                  rental.amount ||
-                                  0}
+                                Rs. {rental.totalAmount || rental.amount || 0}
                               </span>
                             </div>
                           </div>
@@ -410,7 +439,11 @@ export default function RentalHistory() {
                             {rental.daysRemaining !== undefined &&
                               rental.status === "active" && (
                                 <p
-                                  className={`text-xs mt-1 ${rental.isOverdue ? "text-red-600" : "text-gray-500"}`}
+                                  className={`text-xs mt-1 ${
+                                    rental.isOverdue
+                                      ? "text-red-600"
+                                      : "text-gray-500"
+                                  }`}
                                 >
                                   {rental.isOverdue
                                     ? `${Math.abs(rental.daysRemaining)} days overdue`
@@ -466,6 +499,17 @@ export default function RentalHistory() {
                             >
                               Details
                             </button>
+                            {isExtensionEligible && (
+                              <button
+                                onClick={() => {
+                                  setSelectedRentalId(rental._id);
+                                  setShowExtensionModal(true);
+                                }}
+                                className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200"
+                              >
+                                📅 Request Extension
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -474,6 +518,52 @@ export default function RentalHistory() {
                 </div>
               );
             })}
+          </div>
+        )}
+        {showExtensionModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl shadow-xl max-w-md w-full">
+              <h2 className="text-xl font-bold mb-4 text-blue-700">
+                Request Extension
+              </h2>
+
+              <label className="block mb-2 text-sm font-medium">
+                New End Date:
+              </label>
+              <input
+                type="date"
+                value={newEndDate}
+                onChange={(e) => setNewEndDate(e.target.value)}
+                className="w-full border p-2 rounded mb-4"
+                min={new Date().toISOString().split("T")[0]}
+              />
+
+              <label className="block mb-2 text-sm font-medium">
+                Message (optional):
+              </label>
+              <textarea
+                rows={3}
+                className="w-full border p-2 rounded mb-4"
+                placeholder="Reason or any note..."
+                value={extensionMessage}
+                onChange={(e) => setExtensionMessage(e.target.value)}
+              />
+
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={() => setShowExtensionModal(false)}
+                  className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleExtensionRequest(selectedRentalId)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

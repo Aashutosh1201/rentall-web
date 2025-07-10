@@ -12,6 +12,7 @@ const Admin = () => {
   const [extensions, setExtensions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [extensionTab, setExtensionTab] = useState("pending");
   const [selectedImage, setSelectedImage] = useState(null);
 
   // New category form state
@@ -664,57 +665,80 @@ const Admin = () => {
           <h2 className="text-2xl font-semibold mb-4 text-gray-700">
             Extension Requests
           </h2>
-          <div className="space-y-4">
-            {extensions.map((extension) => (
-              <div
-                key={extension._id}
-                className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition"
+          <div className="mb-6 flex space-x-4 border-b">
+            {["pending", "approved", "rejected", "all"].map((status) => (
+              <button
+                key={status}
+                onClick={() => setExtensionTab(status)}
+                className={`pb-2 text-sm font-medium ${
+                  extensionTab === status
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
               >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      {extension.productId?.title}
-                    </h3>
-                    <p className="text-gray-600 mt-1">
-                      <strong>User:</strong> {extension.userId?.fullName}
-                    </p>
-                    <p className="text-gray-600 mt-1">
-                      <strong>Requested Days:</strong>{" "}
-                      {extension.extensionRequest?.requestedDays} more days
-                    </p>
-                    <p className="text-gray-600 mt-1">
-                      <strong>Status:</strong>{" "}
-                      {renderBadge(
-                        extension.extensionRequest?.status || "Pending",
-                        extension.extensionRequest?.status === "approved"
-                          ? "#10b981"
-                          : extension.extensionRequest?.status === "rejected"
-                            ? "#ef4444"
-                            : "#f59e0b"
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex space-x-2 ml-4">
-                    <button
-                      onClick={() =>
-                        respondToExtension(extension._id, "approved")
-                      }
-                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() =>
-                        respondToExtension(extension._id, "rejected")
-                      }
-                      className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
-                    >
-                      Reject
-                    </button>
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-4">
+            {extensions
+              .filter((ext) => {
+                const status = ext.extensionRequest?.status || "pending";
+                return extensionTab === "all" || status === extensionTab;
+              })
+              .map((extension) => (
+                <div
+                  key={extension._id}
+                  className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-800">
+                        {extension.productId?.title}
+                      </h3>
+                      <p className="text-gray-600 mt-1">
+                        <strong>User:</strong> {extension.userId?.fullName}
+                      </p>
+                      <p className="text-gray-600 mt-1">
+                        <strong>Requested Days:</strong>{" "}
+                        {extension.extensionRequest?.requestedDays} more days
+                      </p>
+                      <p className="text-gray-600 mt-1">
+                        <strong>Status:</strong>{" "}
+                        {renderBadge(
+                          extension.extensionRequest?.status || "Pending",
+                          extension.extensionRequest?.status === "approved"
+                            ? "#10b981"
+                            : extension.extensionRequest?.status === "rejected"
+                              ? "#ef4444"
+                              : "#f59e0b"
+                        )}
+                      </p>
+                    </div>
+                    {extension.extensionRequest?.status === "pending" && (
+                      <div className="flex space-x-2 ml-4">
+                        <button
+                          onClick={() =>
+                            respondToExtension(extension._id, "approved")
+                          }
+                          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() =>
+                            respondToExtension(extension._id, "rejected")
+                          }
+                          className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         </section>
       )}
