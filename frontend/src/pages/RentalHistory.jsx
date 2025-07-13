@@ -52,6 +52,31 @@ export default function RentalHistory() {
   const [extensionMessage, setExtensionMessage] = useState("");
   const [selectedRentalId, setSelectedRentalId] = useState(null);
 
+  const handleDeliveryProofUpload = async (rentalId, file) => {
+    const formData = new FormData();
+    formData.append("photo", file);
+
+    try {
+      const res = await fetch(
+        `${getApiUrl()}/api/rentals/${rentalId}/upload-delivery-proof`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${getToken()}` },
+          body: formData,
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Delivery photo uploaded!");
+        fetchRentals();
+      } else {
+        toast.error("Failed to upload delivery photo");
+      }
+    } catch (err) {
+      toast.error("Upload failed");
+    }
+  };
+
   const handleExtensionRequest = async (rentalId) => {
     try {
       const res = await fetch(
@@ -491,6 +516,20 @@ export default function RentalHistory() {
                                 Mark Returned
                               </button>
                             )}
+                            {rental.status === "active" &&
+                              !rental.isOverdue &&
+                              !rental.extensionRequest?.status && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedRentalId(rental._id);
+                                    setShowExtensionModal(true);
+                                  }}
+                                  className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200"
+                                >
+                                  📅 Request Extension
+                                </button>
+                              )}
+
                             <button
                               onClick={() =>
                                 navigate(`/rentals/${rental._id || rental.id}`)
@@ -510,6 +549,27 @@ export default function RentalHistory() {
                                 📅 Request Extension
                               </button>
                             )}
+                            {rental.status === "active" &&
+                              rental.deliveryLogistics?.status ===
+                                "pending" && (
+                                <div className="mt-2">
+                                  <label className="block text-xs text-gray-600">
+                                    Upload Delivery Photo:
+                                  </label>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) =>
+                                      e.target.files[0] &&
+                                      handleDeliveryProofUpload(
+                                        rental._id,
+                                        e.target.files[0]
+                                      )
+                                    }
+                                    className="text-xs"
+                                  />
+                                </div>
+                              )}
                           </div>
                         </div>
                       </div>
