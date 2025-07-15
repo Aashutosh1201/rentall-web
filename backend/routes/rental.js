@@ -144,7 +144,7 @@ router.post("/create", verifyToken, checkKYC, async (req, res) => {
       paymentId,
       transactionId: transactionId || paymentId,
       purchaseOrderId, // Auto-generated unique purchase order ID
-      status: "active",
+      status: "pending",
       pickup: {
         method: "pending",
         status: "pending",

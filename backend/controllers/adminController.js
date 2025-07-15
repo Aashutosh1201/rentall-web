@@ -51,6 +51,7 @@ const adminConfirmDelivery = async (req, res) => {
     }
 
     rental.delivery.status = "completed";
+    rental.status = "active";
     rental.delivery.confirmedByAdmin = true;
 
     const now = new Date();

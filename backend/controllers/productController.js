@@ -97,7 +97,36 @@ const getAllProducts = async (req, res) => {
       "fullName email"
     );
 
-    res.status(200).json(products);
+    // Get all product IDs
+    const productIds = products.map((p) => p._id);
+
+    // Find active rentals for those products
+    const activeRentals = await Rental.find({
+      productId: { $in: productIds },
+      status: "active",
+    });
+
+    // Build a map: productId => rental
+    const rentalMap = {};
+    activeRentals.forEach((rental) => {
+      rentalMap[rental.productId.toString()] = {
+        startDate: rental.startDate,
+        endDate: rental.endDate,
+        status: rental.status,
+        isOverdue: new Date() > new Date(rental.endDate),
+      };
+    });
+
+    // Attach `activeRental` info to each product
+    const enrichedProducts = products.map((product) => {
+      const rental = rentalMap[product._id.toString()];
+      return {
+        ...product.toObject(),
+        activeRental: rental || null,
+      };
+    });
+
+    res.status(200).json(enrichedProducts);
   } catch (error) {
     console.error("Get Products Error:", error);
     res.status(500).json({ message: "Server Error" });

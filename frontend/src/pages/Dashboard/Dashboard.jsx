@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense } from "react";
+import { toast } from "react-toastify";
 import {
   FiHome,
   FiPackage,
@@ -481,6 +482,11 @@ const MyOrders = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
+  const [newEndDate, setNewEndDate] = useState("");
+  const [extensionMessage, setExtensionMessage] = useState("");
+  const [selectedRentalId, setSelectedRentalId] = useState(null);
+
   const navigate = useNavigate();
 
   const fetchOrders = async () => {
@@ -496,12 +502,86 @@ const MyOrders = () => {
       if (!response.ok) throw new Error("Failed to fetch rentals");
       const data = await response.json();
       const rentals = data.rentals || [];
-      setOrders(rentals);
+      const now = new Date();
+      const enhancedRentals = rentals.map((rental) => {
+        const end = new Date(rental.endDate);
+        const now = new Date();
+        const diffInMs = end - now;
+        const hoursRemaining = diffInMs / (1000 * 60 * 60);
+        const daysRemaining = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
+        return {
+          ...rental,
+          isOverdue: now > end,
+          hoursRemaining,
+          daysRemaining: Math.ceil((end - now) / (1000 * 60 * 60 * 24)),
+        };
+      });
+
+      setOrders(enhancedRentals);
     } catch (err) {
       console.error("MyOrders fetch error:", err);
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const isExtensionAllowed = (endDate) => {
+    const now = new Date();
+    const end = new Date(endDate);
+    const diffHours = (end - now) / (1000 * 60 * 60);
+    return diffHours > 12;
+  };
+
+  const handleExtensionRequest = async (rentalId) => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/rentals/${rentalId}/request-extension`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ newEndDate, message: extensionMessage }),
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Extension request sent!");
+        setShowExtensionModal(false);
+        fetchOrders();
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Failed to request extension");
+      }
+    } catch (err) {
+      toast.error("Server error.");
+    }
+  };
+
+  const handleDeliveryProofUpload = async (rentalId, file) => {
+    const formData = new FormData();
+    formData.append("photo", file);
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/rentals/${rentalId}/upload-delivery-proof`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          body: formData,
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Delivery photo uploaded!");
+        fetchOrders();
+      } else {
+        toast.error("Failed to upload delivery photo");
+      }
+    } catch (err) {
+      toast.error("Upload failed");
     }
   };
 
@@ -629,22 +709,97 @@ const MyOrders = () => {
                   <td className="px-6 py-4 text-sm">
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        order.status === "active"
-                          ? "bg-blue-100 text-blue-800"
-                          : order.status === "completed"
-                            ? "bg-green-100 text-green-800"
-                            : order.status === "cancelled"
+                        order.status === "completed"
+                          ? "bg-green-100 text-green-800"
+                          : order.status === "cancelled"
+                            ? "bg-red-100 text-red-800"
+                            : order.isOverdue
                               ? "bg-red-100 text-red-800"
-                              : "bg-gray-100 text-gray-600"
+                              : "bg-blue-100 text-blue-800"
                       }`}
                     >
-                      {order.status}
+                      {order.isOverdue ? "Overdue" : order.status}
                     </span>
+                    {order.status === "active" && (
+                      <div className="text-xs mt-1">
+                        {order.isOverdue ? (
+                          <span className="text-red-600">
+                            {Math.abs(order.daysRemaining)} day(s) overdue
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">
+                            {order.daysRemaining} day(s) left
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ✅ Extension request button (only within 12h of due) */}
+                    {order.status === "active" &&
+                      order.hoursRemaining <= 12 &&
+                      !order.isOverdue &&
+                      !order.extensionRequest?.status && (
+                        <button
+                          onClick={() => {
+                            setSelectedRentalId(order._id);
+                            setShowExtensionModal(true);
+                          }}
+                          className="block text-blue-600 hover:underline text-xs mt-1"
+                        >
+                          📅 Request Extension
+                        </button>
+                      )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {showExtensionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-xl max-w-md w-full">
+            <h2 className="text-xl font-bold mb-4 text-blue-700">
+              Request Extension
+            </h2>
+
+            <label className="block mb-2 text-sm font-medium">
+              New End Date:
+            </label>
+            <input
+              type="date"
+              value={newEndDate}
+              onChange={(e) => setNewEndDate(e.target.value)}
+              className="w-full border p-2 rounded mb-4"
+              min={new Date().toISOString().split("T")[0]}
+            />
+
+            <label className="block mb-2 text-sm font-medium">
+              Message (optional):
+            </label>
+            <textarea
+              rows={3}
+              className="w-full border p-2 rounded mb-4"
+              placeholder="Reason or any note..."
+              value={extensionMessage}
+              onChange={(e) => setExtensionMessage(e.target.value)}
+            />
+
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setShowExtensionModal(false)}
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleExtensionRequest(selectedRentalId)}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -811,6 +966,31 @@ const MyProducts = () => {
                           <div className="text-sm font-medium text-gray-900">
                             {product.title}
                           </div>
+                          {product.activeRental?.endDate && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              {new Date(product.activeRental.endDate) <
+                              new Date() ? (
+                                <span className="text-red-600">
+                                  {Math.ceil(
+                                    (new Date() -
+                                      new Date(product.activeRental.endDate)) /
+                                      (1000 * 60 * 60 * 24)
+                                  )}{" "}
+                                  days overdue
+                                </span>
+                              ) : (
+                                <span>
+                                  {Math.ceil(
+                                    (new Date(product.activeRental.endDate) -
+                                      new Date()) /
+                                      (1000 * 60 * 60 * 24)
+                                  )}{" "}
+                                  days left
+                                </span>
+                              )}
+                            </div>
+                          )}
+
                           <div className="text-xs text-gray-500">
                             {product.rating ? (
                               <div className="flex items-center">
@@ -835,10 +1015,20 @@ const MyProducts = () => {
                         className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           product.isAvailable
                             ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
+                            : product.activeRental?.endDate &&
+                                new Date(product.activeRental.endDate) <
+                                  new Date()
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
                         }`}
                       >
-                        {product.isAvailable ? "Available" : "Rented"}
+                        {product.isAvailable
+                          ? "Available"
+                          : product.activeRental?.endDate &&
+                              new Date(product.activeRental.endDate) <
+                                new Date()
+                            ? "Overdue"
+                            : "Rented"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
@@ -884,8 +1074,6 @@ const MyProducts = () => {
     </div>
   );
 };
-
-// Profile Component
 // const Profile = () => {
 //   const { logout } = useAuth();
 //   const [user, setUser] = useState(null);
