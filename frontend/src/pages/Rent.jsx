@@ -17,6 +17,7 @@ const Rent = () => {
   const [returnPickupMethod, setReturnPickupMethod] =
     useState("borrower-dropoff");
   const [fees, setFees] = useState(null);
+  const [deliveryZone, setDeliveryZone] = useState("");
 
   // Set default dates: today and tomorrow
   const today = new Date().toISOString().split("T")[0];
@@ -93,32 +94,33 @@ const Rent = () => {
   }, [startDate, endDate]);
 
   useEffect(() => {
-    const calculateFees = async () => {
+    const calculateFees = () => {
       if (!startDate || !endDate || !product?._id) return;
-      try {
-        const res = await axios.post(
-          `${API_BASE}/api/rentals/calculate-fee`,
-          {
-            productId: product._id,
-            startDate,
-            endDate,
-            deliveryMethod,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        );
-        setFees(res.data);
-      } catch (err) {
-        console.error("Fee calc error", err);
-        toast.error("Could not calculate delivery fees.");
+
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = end - start;
+      const rentalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      const rentalFee = product.pricePerDay * rentalDays;
+
+      let deliveryFee = 0;
+      if (deliveryMethod === "company-delivery") {
+        deliveryFee =
+          deliveryZone === "inside" ? 80 : deliveryZone === "outside" ? 150 : 0;
       }
+
+      const total = rentalFee + deliveryFee;
+
+      setFees({
+        rentalFee,
+        deliveryFee,
+        total,
+      });
     };
 
     calculateFees();
-  }, [startDate, endDate, deliveryMethod, returnPickupMethod]);
+  }, [startDate, endDate, deliveryMethod, deliveryZone, product]);
 
   const calculateTotal = () => {
     if (!product) return 0;
@@ -224,6 +226,10 @@ const Rent = () => {
       toast.error(errorMsg);
       return;
     }
+    if (deliveryMethod === "company-delivery" && !deliveryZone) {
+      toast.error("Please select your area (inside or outside Ring Road)");
+      return;
+    }
 
     setProcessing(true);
 
@@ -311,6 +317,7 @@ const Rent = () => {
             endDate: rentalData.endDate,
             pickupMethod,
             deliveryMethod,
+            deliveryZone,
             notes: `Rental for ${product.title} from ${startDate} to ${endDate}`,
           },
         }),
@@ -560,16 +567,6 @@ const Rent = () => {
                 </div>
               </div>
 
-              {/* Total */}
-              <div className="border-t pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-medium">Total Amount:</span>
-                  <span className="text-2xl font-bold text-green-600">
-                    Rs. {calculateTotal()}
-                  </span>
-                </div>
-              </div>
-
               <div className="border p-4 rounded mb-4">
                 <h3 className="text-md font-semibold mb-2">
                   Delivery & Return Options
@@ -593,15 +590,31 @@ const Rent = () => {
 
                 {/* Borrower will choose return method at the time of returning the item */}
               </div>
+              {deliveryMethod === "company-delivery" && (
+                <div className="mt-2">
+                  <label className="block text-sm font-medium mb-1">
+                    Where do you live?
+                  </label>
+                  <select
+                    value={deliveryZone}
+                    onChange={(e) => setDeliveryZone(e.target.value)}
+                    className="border rounded w-full p-2"
+                  >
+                    <option value="">Select Area</option>
+                    <option value="inside">Inside Ring Road</option>
+                    <option value="outside">Outside Ring Road</option>
+                  </select>
+                </div>
+              )}
+
               {fees && (
-                <div className="border p-4 rounded bg-gray-50 text-sm mt-2">
+                <div className="border p-4 rounded bg-gray-50 text-sm mt-4">
                   <div>Rental Fee: Rs. {fees.rentalFee}</div>
                   <div>Delivery to You: Rs. {fees.deliveryFee}</div>
-                  <div>
-                    Pickup from You (Return): Rs. {fees.returnPickupFee}
+
+                  <div className="mt-3 border-t pt-3 text-lg font-bold text-green-700">
+                    Total Payable: Rs. {fees.total}
                   </div>
-                  <div>Return to Lender: Rs. {fees.returnDeliveryFee}</div>
-                  <div className="mt-2 font-bold">Total: Rs. {fees.total}</div>
                 </div>
               )}
 
