@@ -12,6 +12,10 @@ const Cart = require("../models/Cart");
 const Notification = require("../models/Notification");
 const Hub = require("../models/Hub");
 const upload = require("../middleware/cloudinaryUploader");
+const {
+  createRentalWithDelivery,
+  calculateRentalFees,
+} = require("../controllers/rentalController");
 
 // Function to generate unique purchase order ID
 function generatePurchaseOrderId() {
@@ -781,6 +785,9 @@ router.post(
     }
   }
 );
+
+router.post("/", verifyToken, createRentalWithDelivery);
+router.post("/calculate-fee", verifyToken, calculateRentalFees);
 
 // delivery proof photo
 router.post(

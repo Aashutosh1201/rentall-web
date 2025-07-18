@@ -734,6 +734,15 @@ const MyOrders = () => {
                       </div>
                     )}
 
+                    {order.status === "active" && (
+                      <div className="text-sm mt-2 text-blue-700">
+                        📍 Pickup Hub:{" "}
+                        <span className="font-medium">
+                          Maitidevi, Kathmandu
+                        </span>
+                      </div>
+                    )}
+
                     {/* ✅ Extension request button (only within 12h of due) */}
                     {order.status === "active" &&
                       order.hoursRemaining <= 12 &&

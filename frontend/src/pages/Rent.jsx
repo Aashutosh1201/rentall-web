@@ -12,6 +12,11 @@ const Rent = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState("");
   const [rentalDays, setRentalDays] = useState(1);
+  const [pickupMethod, setPickupMethod] = useState("lender-dropoff");
+  const [deliveryMethod, setDeliveryMethod] = useState("self-pickup");
+  const [returnPickupMethod, setReturnPickupMethod] =
+    useState("borrower-dropoff");
+  const [fees, setFees] = useState(null);
 
   // Set default dates: today and tomorrow
   const today = new Date().toISOString().split("T")[0];
@@ -27,6 +32,7 @@ const Rent = () => {
   const [rentalConflict, setRentalConflict] = useState(null);
   const token = localStorage.getItem("token");
   const isCartAction = searchParams.get("action") === "cart";
+  const API_BASE = process.env.REACT_APP_API_URL;
 
   // Check user authentication and KYC status
   useEffect(() => {
@@ -85,6 +91,34 @@ const Rent = () => {
       }
     }
   }, [startDate, endDate]);
+
+  useEffect(() => {
+    const calculateFees = async () => {
+      if (!startDate || !endDate || !product?._id) return;
+      try {
+        const res = await axios.post(
+          `${API_BASE}/api/rentals/calculate-fee`,
+          {
+            productId: product._id,
+            startDate,
+            endDate,
+            deliveryMethod,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+        setFees(res.data);
+      } catch (err) {
+        console.error("Fee calc error", err);
+        toast.error("Could not calculate delivery fees.");
+      }
+    };
+
+    calculateFees();
+  }, [startDate, endDate, deliveryMethod, returnPickupMethod]);
 
   const calculateTotal = () => {
     if (!product) return 0;
@@ -275,6 +309,8 @@ const Rent = () => {
             rentalDays: rentalData.rentalDays,
             startDate: rentalData.startDate,
             endDate: rentalData.endDate,
+            pickupMethod,
+            deliveryMethod,
             notes: `Rental for ${product.title} from ${startDate} to ${endDate}`,
           },
         }),
@@ -332,6 +368,13 @@ const Rent = () => {
       setProcessing(false);
     }
   };
+
+  <div className="mt-6 p-4 border rounded-lg bg-blue-50 text-blue-800 shadow-sm">
+    <h3 className="font-semibold text-lg mb-1">📍 Our Hub Location</h3>
+    <p>Maitidevi, Kathmandu</p>
+    <p className="text-sm text-gray-600">Open: 9:00 AM – 6:00 PM</p>
+    <p className="text-sm text-gray-600">Contact: 980XXXXXXX</p>
+  </div>;
 
   // KYC Modal
   if (showKYCModal) {
@@ -526,6 +569,41 @@ const Rent = () => {
                   </span>
                 </div>
               </div>
+
+              <div className="border p-4 rounded mb-4">
+                <h3 className="text-md font-semibold mb-2">
+                  Delivery & Return Options
+                </h3>
+
+                <input type="hidden" value="lender-dropoff" />
+
+                <label className="block text-sm font-medium mb-1">
+                  Hub → You
+                </label>
+                <select
+                  value={deliveryMethod}
+                  onChange={(e) => setDeliveryMethod(e.target.value)}
+                  className="border rounded w-full p-2 mb-3"
+                >
+                  <option value="self-pickup">I’ll collect from hub</option>
+                  <option value="company-delivery">
+                    Deliver to my location
+                  </option>
+                </select>
+
+                {/* Borrower will choose return method at the time of returning the item */}
+              </div>
+              {fees && (
+                <div className="border p-4 rounded bg-gray-50 text-sm mt-2">
+                  <div>Rental Fee: Rs. {fees.rentalFee}</div>
+                  <div>Delivery to You: Rs. {fees.deliveryFee}</div>
+                  <div>
+                    Pickup from You (Return): Rs. {fees.returnPickupFee}
+                  </div>
+                  <div>Return to Lender: Rs. {fees.returnDeliveryFee}</div>
+                  <div className="mt-2 font-bold">Total: Rs. {fees.total}</div>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="space-y-4">
