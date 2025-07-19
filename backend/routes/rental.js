@@ -786,6 +786,32 @@ router.post(
   }
 );
 
+// Choose return method
+router.post("/return-choice/:rentalId", verifyToken, async (req, res) => {
+  const { returnMethod } = req.body;
+
+  if (!["borrower-dropoff", "company-pickup"].includes(returnMethod)) {
+    return res.status(400).json({ message: "Invalid return method" });
+  }
+
+  const rental = await Rental.findById(req.params.rentalId);
+  if (!rental) return res.status(404).json({ message: "Rental not found" });
+
+  if (rental.userId.toString() !== req.user._id.toString()) {
+    return res.status(403).json({ message: "Not your rental" });
+  }
+
+  // Save return method
+  rental.returnLogistics.method = returnMethod;
+  rental.returnLogistics.status = "pending";
+  if (returnMethod === "company-pickup") {
+    rental.payment.returnPickupFee = 150;
+  }
+
+  await rental.save();
+  res.json({ message: "Return method saved", rental });
+});
+
 router.post("/", verifyToken, createRentalWithDelivery);
 router.post("/calculate-fee", verifyToken, calculateRentalFees);
 

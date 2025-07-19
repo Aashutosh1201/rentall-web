@@ -5,9 +5,12 @@ const dotenv = require("dotenv");
 // Load environment variables
 dotenv.config();
 const passport = require("./config/passport");
+const errorHandler = require("./middleware/errorHandler");
 const session = require("express-session");
 const path = require("path");
 const { getCurrentUser } = require("./controllers/userController");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 
@@ -32,6 +35,24 @@ app.use(
 
 app.use(express.json({ limit: "10mb" })); // Increase limit for image uploads
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// Security middleware
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "accounts.google.com"],
+      frameSrc: ["'self'", "accounts.google.com"],
+      connectSrc: ["'self'", "https://www.googleapis.com"],
+    },
+  })
+);
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
 
 // Session middleware
 app.use(
@@ -131,6 +152,7 @@ mongoose
     process.exit(1);
   });
 
+app.use(errorHandler);
 // Start server
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
