@@ -21,7 +21,7 @@ const steps = [
 
 const HowItWorks = () => {
   return (
-    <section className="py-20 bg-white">
+    <section className="py-20 bg-white" id="how-it-works">
       <div className="max-w-6xl mx-auto px-4">
         <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-12">
           How RentALL Works
@@ -31,7 +31,8 @@ const HowItWorks = () => {
           {steps.map((step, index) => (
             <div
               key={index}
-              className="flex flex-col items-center text-center p-6 bg-gray-50 rounded-xl shadow-md"
+              className="flex flex-col items-center text-center p-6 bg-gray-50 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300"
+              aria-label={`Step ${index + 1}: ${step.title}`}
             >
               <div className="mb-4">{step.icon}</div>
               <h3 className="text-xl font-semibold mb-2">{step.title}</h3>

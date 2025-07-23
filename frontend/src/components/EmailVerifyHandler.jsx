@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { Loader2 } from "lucide-react";
 
 const EmailVerifyHandler = () => {
   const { token } = useParams();
@@ -36,32 +37,34 @@ const EmailVerifyHandler = () => {
   }, [token, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
-        <h2 className="text-2xl font-bold mb-6">Email Verification</h2>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg w-full max-w-md text-center border border-gray-200 dark:border-gray-700">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">
+          Email Verification
+        </h2>
 
         {status === "verifying" && (
           <div>
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p>Verifying your email...</p>
+            <Loader2 className="h-10 w-10 mx-auto animate-spin text-blue-600 mb-4" />
+            <p className="text-gray-700 dark:text-gray-300">Verifying your email...</p>
           </div>
         )}
 
         {status === "success" && (
           <div>
-            <div className="text-green-600 text-5xl mb-4">✓</div>
+            <div className="text-green-500 text-6xl mb-4">✓</div>
             <p className="text-green-600 font-medium">{message}</p>
-            <p className="text-gray-600 mt-2">Redirecting...</p>
+            <p className="text-gray-500 mt-2">Redirecting...</p>
           </div>
         )}
 
         {status === "error" && (
           <div>
-            <div className="text-red-600 text-5xl mb-4">✗</div>
-            <p className="text-red-600 font-medium">{message}</p>
+            <div className="text-red-500 text-6xl mb-4">✗</div>
+            <p className="text-red-600 font-semibold">{message}</p>
             <button
               onClick={() => navigate("/register")}
-              className="mt-4 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+              className="mt-5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-full transition"
             >
               Back to Register
             </button>

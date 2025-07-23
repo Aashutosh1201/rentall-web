@@ -8,13 +8,14 @@ import {
   LogOut,
   Home,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Sidebar = ({ onLogoutClick }) => {
   const location = useLocation();
 
-  const isActive = (path) => {
-    return location.pathname === path;
-  };
+  const isActive = (path) => location.pathname === path;
 
   const menuItems = [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -24,50 +25,49 @@ const Sidebar = ({ onLogoutClick }) => {
   ];
 
   return (
-    <div className="w-64 bg-white shadow-lg min-h-screen flex flex-col">
-      {/* Logo and Brand */}
-      <div className="p-6 border-b">
-        <Link to="/" className="flex items-center gap-2">
-          <Home className="w-6 h-6 text-blue-600" />
-          <h2 className="text-2xl font-bold text-gray-800">RentALL</h2>
+    <aside className="w-64 h-screen border-r bg-background text-foreground shadow-md flex flex-col">
+      {/* Brand Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
+        <Link to="/" className="flex items-center gap-3">
+          <Home className="w-6 h-6" />
+          <h1 className="text-2xl font-semibold">RentALL</h1>
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4">
-        <ul className="space-y-2">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive(item.path)
-                      ? "bg-blue-50 text-blue-600"
-                      : "text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      <ScrollArea className="flex-1 p-4">
+        <nav className="space-y-1">
+          {menuItems.map(({ path, label, icon: Icon }) => (
+            <Link key={path} to={path}>
+              <Button
+                variant={isActive(path) ? "secondary" : "ghost"}
+                className={cn(
+                  "w-full justify-start gap-3 rounded-md px-4 py-2 text-sm transition",
+                  isActive(path)
+                    ? "text-blue-700 bg-blue-100 dark:bg-blue-950"
+                    : "text-muted-foreground hover:text-blue-600"
+                )}
+              >
+                <Icon className="w-5 h-5" />
+                {label}
+              </Button>
+            </Link>
+          ))}
+        </nav>
+      </ScrollArea>
 
-      {/* Logout Button */}
-      <div className="p-4 border-t mt-auto">
-        <button
+      {/* Logout */}
+      <div className="p-4 border-t">
+        <Button
           onClick={onLogoutClick}
-          className="flex items-center gap-3 w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
+          variant="destructive"
+          className="w-full flex gap-3 justify-start"
         >
           <LogOut className="w-5 h-5" />
-          <span className="font-medium">Logout</span>
-        </button>
+          Logout
+        </Button>
       </div>
-    </div>
+    </aside>
   );
 };
 

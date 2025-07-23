@@ -22,11 +22,15 @@ export default function CartIcon() {
   return (
     <button
       onClick={() => navigate("/cart")}
-      className="relative text-gray-700 hover:text-blue-600"
+      className="relative group transition-all duration-150"
+      aria-label="View cart"
     >
-      <FaShoppingCart className="text-2xl" />
+      <FaShoppingCart className="text-2xl text-gray-700 dark:text-gray-200 group-hover:text-blue-600" />
       {count > 0 && (
-        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1.5">
+        <span
+          className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-semibold
+          rounded-full px-1.5 min-w-[18px] text-center animate-pulse"
+        >
           {count}
         </span>
       )}

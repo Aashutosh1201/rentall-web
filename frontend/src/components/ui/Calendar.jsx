@@ -12,7 +12,6 @@ export default function ImprovedCalendar({
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  // Navigation functions
   const prevMonth = () => {
     setCurrentMonth(
       new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
@@ -25,7 +24,6 @@ export default function ImprovedCalendar({
     );
   };
 
-  // Date selection handler
   const handleDateSelect = (date) => {
     if (!onSelect) return;
 
@@ -47,16 +45,12 @@ export default function ImprovedCalendar({
     }
   };
 
-  // Check if a date is selected
   const isDateSelected = (date) => {
-    if (!date) return false;
     const dateStr = date.toISOString().split("T")[0];
     return selected.some((d) => d.toISOString().split("T")[0] === dateStr);
   };
 
-  // Check if a date is today
   const isToday = (date) => {
-    if (!date) return false;
     const today = new Date();
     return (
       date.getDate() === today.getDate() &&
@@ -65,7 +59,6 @@ export default function ImprovedCalendar({
     );
   };
 
-  // Generate calendar days
   const getDaysInMonth = (year, month) =>
     new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
@@ -75,15 +68,12 @@ export default function ImprovedCalendar({
     const month = currentMonth.getMonth();
     const daysInMonth = getDaysInMonth(year, month);
     const firstDayOfMonth = getFirstDayOfMonth(year, month);
-
     const days = [];
 
-    // Empty cells for days before the first day of the month
     for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(<div key={`empty-${i}`} className="w-10 h-10"></div>);
+      days.push(<div key={`empty-${i}`} className="w-10 h-10" />);
     }
 
-    // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       const selected = isDateSelected(date);
@@ -92,16 +82,15 @@ export default function ImprovedCalendar({
       days.push(
         <button
           key={day}
-          type="button"
           onClick={() => handleDateSelect(date)}
-          className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors
+          className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200
             ${
               selected
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "hover:bg-gray-100"
-            }
-            ${today && !selected ? "border border-blue-500 text-blue-600" : ""}
-          `}
+                ? "bg-blue-600 text-white hover:bg-blue-700 shadow"
+                : today
+                ? "border border-blue-500 text-blue-600 font-semibold"
+                : "text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
         >
           {day}
         </button>
@@ -111,12 +100,9 @@ export default function ImprovedCalendar({
     return days;
   };
 
-  // Format month and year for display
-  const formatMonthYear = (date) => {
-    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  };
+  const formatMonthYear = (date) =>
+    date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  // Use provided components or defaults
   const {
     IconLeft = () => <ChevronLeft className="h-5 w-5 text-gray-500" />,
     IconRight = () => <ChevronRight className="h-5 w-5 text-gray-500" />,
@@ -124,26 +110,26 @@ export default function ImprovedCalendar({
 
   return (
     <div
-      className={`bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden ${className}`}
+      className={`bg-white dark:bg-gray-900 dark:text-gray-100 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 ${className}`}
     >
-      {/* Calendar Header */}
-      <div className="p-4 bg-white border-b border-gray-200">
+      {/* Header */}
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
           <button
             onClick={prevMonth}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             aria-label="Previous month"
           >
             <IconLeft />
           </button>
 
-          <h2 className="text-lg font-medium text-gray-900">
+          <h2 className="text-lg font-semibold">
             {formatMonthYear(currentMonth)}
           </h2>
 
           <button
             onClick={nextMonth}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             aria-label="Next month"
           >
             <IconRight />
@@ -151,30 +137,27 @@ export default function ImprovedCalendar({
         </div>
       </div>
 
-      {/* Calendar Grid */}
+      {/* Days */}
       <div className="p-4 pb-2">
-        {/* Weekday headers */}
         <div className="grid grid-cols-7 mb-2">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
             <div
               key={day}
-              className="text-center text-sm font-medium text-gray-500 h-8 flex items-center justify-center"
+              className="text-center text-xs font-semibold text-gray-500 dark:text-gray-400 h-6"
             >
               {day}
             </div>
           ))}
         </div>
-
-        {/* Calendar days */}
-        <div className="grid grid-cols-7 gap-1 place-items-center">
+        <div className="grid grid-cols-7 gap-2 place-items-center">
           {renderCalendarDays()}
         </div>
       </div>
 
-      {/* Selected Dates Display */}
+      {/* Selected Dates */}
       {selected.length > 0 && (
-        <div className="p-4 bg-gray-50 border-t border-gray-200">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">
+        <div className="p-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+          <h3 className="text-sm font-medium mb-2">
             Selected dates ({selected.length}):
           </h3>
           <div className="flex flex-wrap gap-2">
@@ -183,7 +166,7 @@ export default function ImprovedCalendar({
               .map((date, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                  className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
                 >
                   {date.toLocaleDateString("en-US", {
                     weekday: "short",
@@ -200,7 +183,7 @@ export default function ImprovedCalendar({
                         )
                       );
                     }}
-                    className="ml-1.5 rounded-full p-0.5 hover:bg-blue-200"
+                    className="ml-2 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5"
                     aria-label="Remove date"
                   >
                     <X className="h-3 w-3" />

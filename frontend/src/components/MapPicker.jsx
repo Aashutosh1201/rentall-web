@@ -1,15 +1,15 @@
+import React, { useState, useEffect } from "react";
 import {
   MapContainer,
   TileLayer,
   Marker,
-  useMapEvents,
   Popup,
+  useMapEvents,
 } from "react-leaflet";
-import { useState, useEffect } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Fix missing marker icons
+// Fix Leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
@@ -18,7 +18,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png",
 });
 
-function LocationMarker({ initialPosition, onSelect }) {
+const LocationMarker = ({ initialPosition, onSelect }) => {
   const [position, setPosition] = useState(initialPosition);
 
   useEffect(() => {
@@ -28,10 +28,9 @@ function LocationMarker({ initialPosition, onSelect }) {
   }, [initialPosition]);
 
   useMapEvents({
-    click(e) {
+    click: (e) => {
       const { lat, lng } = e.latlng;
-      const newPosition = [lat, lng];
-      setPosition(newPosition);
+      setPosition([lat, lng]);
       onSelect({ lat, lng });
     },
   });
@@ -41,49 +40,34 @@ function LocationMarker({ initialPosition, onSelect }) {
       <Popup>Your item will be available here</Popup>
     </Marker>
   ) : null;
-}
+};
 
-export default function MapPicker({
-  initialLocation,
-  onLocationSelect,
-  onClose,
-}) {
-  // Safely parse initial location
-  const parseInitialLocation = () => {
-    if (!initialLocation) return null;
+const parseInitialLocation = (location) => {
+  if (!location) return null;
 
-    // If it's already an object {lat, lng}, return it
-    if (
-      typeof initialLocation === "object" &&
-      initialLocation.lat &&
-      initialLocation.lng
-    ) {
-      return initialLocation;
+  if (typeof location === "object" && location.lat && location.lng) {
+    return location;
+  }
+
+  if (typeof location === "string") {
+    const [lat, lng] = location.split(",").map((n) => parseFloat(n.trim()));
+    if (!isNaN(lat) && !isNaN(lng)) {
+      return { lat, lng };
     }
+  }
 
-    // If it's a string, try to parse it
-    if (typeof initialLocation === "string") {
-      const parts = initialLocation.split(",");
-      if (parts.length === 2) {
-        const lat = parseFloat(parts[0].trim());
-        const lng = parseFloat(parts[1].trim());
-        if (!isNaN(lat) && !isNaN(lng)) {
-          return { lat, lng };
-        }
-      }
-    }
+  return null;
+};
 
-    return null;
-  };
-
-  const parsedInitialLocation = parseInitialLocation();
+const MapPicker = ({ initialLocation, onLocationSelect, onClose }) => {
+  const parsedLocation = parseInitialLocation(initialLocation);
 
   return (
-    <div className="mb-4 relative" style={{ height: "400px" }}>
+    <div className="mb-4 relative h-[400px] rounded-md overflow-hidden">
       <MapContainer
-        center={parsedInitialLocation || [27.7172, 85.324]} // Kathmandu as default
-        zoom={parsedInitialLocation ? 15 : 13}
-        style={{ height: "100%", width: "100%", borderRadius: "0.5rem" }}
+        center={parsedLocation || [27.7172, 85.324]} // Kathmandu fallback
+        zoom={parsedLocation ? 15 : 13}
+        style={{ height: "100%", width: "100%" }}
         zoomControl={false}
       >
         <TileLayer
@@ -91,20 +75,21 @@ export default function MapPicker({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         <LocationMarker
-          initialPosition={parsedInitialLocation}
+          initialPosition={parsedLocation}
           onSelect={onLocationSelect}
         />
       </MapContainer>
 
-      <div className="absolute top-2 right-2 z-[1000] flex gap-2">
-        <button
-          onClick={onClose}
-          className="bg-white p-2 rounded shadow hover:bg-gray-100"
-          title="Close map"
-        >
-          ×
-        </button>
-      </div>
+      {/* Close Button */}
+      <button
+        onClick={onClose}
+        className="absolute top-3 right-3 bg-white p-2 rounded-full shadow hover:bg-gray-100 text-lg font-bold z-[1000]"
+        aria-label="Close map"
+      >
+        ×
+      </button>
     </div>
   );
-}
+};
+
+export default MapPicker;
