@@ -13,14 +13,14 @@ import {
 
 // Icon mapping object
 const iconComponents = {
-  Bike: Bike,
-  Camera: Camera,
-  MonitorSmartphone: MonitorSmartphone,
-  Drill: Drill,
-  Shirt: Shirt,
-  Sofa: Sofa,
-  Tent: Tent,
-  Wrench: Wrench,
+  Bike,
+  Camera,
+  MonitorSmartphone,
+  Drill,
+  Shirt,
+  Sofa,
+  Tent,
+  Wrench,
 };
 
 const Categories = () => {
@@ -31,9 +31,7 @@ const Categories = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        console.log("Fetching categories from API...");
         const response = await fetch("http://localhost:8000/api/categories");
-        console.log("Response status:", response.status);
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -41,10 +39,8 @@ const Categories = () => {
         }
 
         const data = await response.json();
-        console.log("Received categories:", data);
         setCategories(data);
       } catch (err) {
-        console.error("Error fetching categories:", err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -56,9 +52,11 @@ const Categories = () => {
 
   if (loading) {
     return (
-      <section className="py-20 bg-gray-50">
+      <section className="py-20 bg-gray-50 dark:bg-gray-900">
         <div className="max-w-6xl mx-auto px-4">
-          <p className="text-center">Loading categories...</p>
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Loading categories...
+          </p>
         </div>
       </section>
     );
@@ -66,13 +64,15 @@ const Categories = () => {
 
   if (error) {
     return (
-      <section className="py-20 bg-gray-50">
+      <section className="py-20 bg-gray-50 dark:bg-gray-900">
         <div className="max-w-6xl mx-auto px-4">
-          <p className="text-center text-red-600">Error: {error}</p>
+          <p className="text-center text-red-600 dark:text-red-400">
+            Error: {error}
+          </p>
           <p className="text-center mt-4">
             <button
               onClick={() => window.location.reload()}
-              className="text-blue-600 hover:underline"
+              className="text-blue-600 dark:text-blue-400 hover:underline"
             >
               Try Again
             </button>
@@ -84,13 +84,13 @@ const Categories = () => {
 
   const renderIcon = (iconName) => {
     const Icon = iconComponents[iconName] || Wrench;
-    return <Icon className="w-8 h-8 text-blue-600" />;
+    return <Icon className="w-8 h-8 text-blue-600 dark:text-blue-400" />;
   };
 
   return (
-    <section className="py-20 bg-gray-50">
+    <section className="py-20 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       <div className="max-w-6xl mx-auto px-4">
-        <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-12">
+        <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-800 dark:text-white mb-12">
           Browse by Category
         </h2>
 
@@ -99,10 +99,10 @@ const Categories = () => {
             <Link
               key={cat._id}
               to={`/categories/${cat.label.toLowerCase()}`}
-              className="flex flex-col items-center justify-center bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition cursor-pointer"
+              className="flex flex-col items-center justify-center bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer"
             >
               <div className="mb-2">{renderIcon(cat.icon)}</div>
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                 {cat.label}
               </span>
             </Link>

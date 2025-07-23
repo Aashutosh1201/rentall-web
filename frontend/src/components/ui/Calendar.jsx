@@ -88,8 +88,8 @@ export default function ImprovedCalendar({
               selected
                 ? "bg-blue-600 text-white hover:bg-blue-700 shadow"
                 : today
-                ? "border border-blue-500 text-blue-600 font-semibold"
-                : "text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+                ? "border border-blue-500 text-blue-600 dark:text-blue-400 font-semibold"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             }`}
         >
           {day}
@@ -104,8 +104,8 @@ export default function ImprovedCalendar({
     date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   const {
-    IconLeft = () => <ChevronLeft className="h-5 w-5 text-gray-500" />,
-    IconRight = () => <ChevronRight className="h-5 w-5 text-gray-500" />,
+    IconLeft = () => <ChevronLeft className="h-5 w-5 text-gray-500 dark:text-gray-300" />,
+    IconRight = () => <ChevronRight className="h-5 w-5 text-gray-500 dark:text-gray-300" />,
   } = components;
 
   return (

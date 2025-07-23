@@ -26,9 +26,9 @@ const benefits = [
 
 const WhyRentAll = () => {
   return (
-    <section className="py-20 bg-gray-100">
+    <section className="py-20 bg-gray-100 dark:bg-gray-900 transition-colors">
       <div className="max-w-6xl mx-auto px-4">
-        <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-12">
+        <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-800 dark:text-white mb-12">
           Why Choose RentALL?
         </h2>
 
@@ -36,13 +36,13 @@ const WhyRentAll = () => {
           {benefits.map((benefit, index) => (
             <div
               key={index}
-              className="bg-white p-6 rounded-2xl shadow hover:shadow-md transition"
+              className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow hover:shadow-md transition text-gray-800 dark:text-gray-100"
             >
               <div className="mb-4">{benefit.icon}</div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-100 mb-2">
                 {benefit.title}
               </h3>
-              <p className="text-gray-600">{benefit.description}</p>
+              <p className="text-gray-600 dark:text-gray-300">{benefit.description}</p>
             </div>
           ))}
         </div>

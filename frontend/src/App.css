@@ -1,3 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global light/dark background and text */
+body {
+  @apply bg-white text-gray-900;
+}
+
+.dark body {
+  @apply bg-gray-900 text-white;
+}
+
+/* App styles */
 .App {
   text-align: center;
 }
@@ -14,14 +28,14 @@
 }
 
 .App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+  @apply min-h-screen flex flex-col items-center justify-center text-[calc(10px+2vmin)];
+  background-color: #282c34; /* Keep for animation contrast, or override */
   color: white;
+}
+
+.dark .App-header {
+  background-color: #111827; /* Tailwind dark gray */
+  color: #f3f4f6;
 }
 
 .App-link {

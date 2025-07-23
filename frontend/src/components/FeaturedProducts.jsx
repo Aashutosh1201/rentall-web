@@ -5,31 +5,35 @@ import { BadgePercent } from "lucide-react";
 const products = [
   {
     name: "Mountain Bike",
-    image: "https://upload.wikimedia.org/wikipedia/commons/9/96/Orbea_Occam_2020.jpg",
+    image:
+      "https://upload.wikimedia.org/wikipedia/commons/9/96/Orbea_Occam_2020.jpg",
     price: "Rs. 700/day",
   },
   {
     name: "DSLR Camera",
-    image: "https://www.adorama.com/images/cms/4228ica5dm4k1_3%5B1%5D.jpg",
+    image:
+      "https://www.adorama.com/images/cms/4228ica5dm4k1_3%5B1%5D.jpg",
     price: "Rs. 1,200/day",
   },
   {
     name: "Projector",
-    image: "https://m.media-amazon.com/images/I/61pKMIi0AfL._AC_SL1500_.jpg",
+    image:
+      "https://m.media-amazon.com/images/I/61pKMIi0AfL._AC_SL1500_.jpg",
     price: "Rs. 900/day",
   },
   {
     name: "Camping Tent",
-    image: "https://m.media-amazon.com/images/I/81DaQhY+yRL._AC_SL1500_.jpg",
+    image:
+      "https://m.media-amazon.com/images/I/81DaQhY+yRL._AC_SL1500_.jpg",
     price: "Rs. 500/day",
   },
 ];
 
 const FeaturedProducts = () => {
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-gray-50">
+    <section className="py-20 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 transition-colors">
       <div className="max-w-6xl mx-auto px-4">
-        <h2 className="text-4xl font-bold text-center text-gray-800 mb-14">
+        <h2 className="text-4xl font-bold text-center text-gray-800 dark:text-white mb-14">
           Featured Products
         </h2>
 
@@ -37,7 +41,7 @@ const FeaturedProducts = () => {
           {products.map((product, index) => (
             <div
               key={index}
-              className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 group"
+              className="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 group border border-gray-200 dark:border-gray-700"
             >
               <div className="relative">
                 <img
@@ -50,10 +54,12 @@ const FeaturedProducts = () => {
                 </span>
               </div>
               <div className="p-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-1">
+                <h3 className="text-lg font-semibold mb-1">
                   {product.name}
                 </h3>
-                <p className="text-blue-600 font-medium">{product.price}</p>
+                <p className="text-blue-600 dark:text-blue-400 font-medium">
+                  {product.price}
+                </p>
               </div>
             </div>
           ))}

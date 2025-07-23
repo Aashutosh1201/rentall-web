@@ -3,14 +3,14 @@ import heroImage from "./hero.jpeg";
 
 const Hero = () => {
   return (
-    <section className="pt-24 pb-16 bg-gray-50">
+    <section className="pt-24 pb-16 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 flex flex-col-reverse md:flex-row items-center justify-between gap-10">
         {/* Text Content */}
         <div className="w-full md:w-1/2 text-center md:text-left">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-800 leading-tight mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-800 dark:text-white leading-tight mb-4">
             Rent Anything. Anytime. Anywhere.
           </h1>
-          <p className="text-lg text-gray-600 mb-6">
+          <p className="text-lg text-gray-600 dark:text-gray-300 mb-6">
             RentALL connects lenders and borrowers — from bikes to cameras, tools to tents. Save money. Make money. Live smart.
           </p>
           <a

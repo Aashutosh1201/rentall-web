@@ -25,7 +25,7 @@ const Sidebar = ({ onLogoutClick }) => {
   ];
 
   return (
-    <aside className="w-64 h-screen border-r bg-background text-foreground shadow-md flex flex-col">
+    <aside className="w-64 h-screen border-r border-gray-200 dark:border-gray-700 bg-background text-foreground shadow-md flex flex-col">
       {/* Brand Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
         <Link to="/" className="flex items-center gap-3">
@@ -45,7 +45,7 @@ const Sidebar = ({ onLogoutClick }) => {
                   "w-full justify-start gap-3 rounded-md px-4 py-2 text-sm transition",
                   isActive(path)
                     ? "text-blue-700 bg-blue-100 dark:bg-blue-950"
-                    : "text-muted-foreground hover:text-blue-600"
+                    : "text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400"
                 )}
               >
                 <Icon className="w-5 h-5" />
@@ -57,7 +57,7 @@ const Sidebar = ({ onLogoutClick }) => {
       </ScrollArea>
 
       {/* Logout */}
-      <div className="p-4 border-t">
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <Button
           onClick={onLogoutClick}
           variant="destructive"

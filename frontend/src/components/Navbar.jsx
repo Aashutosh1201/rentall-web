@@ -15,6 +15,8 @@ import {
   FiX,
 } from "react-icons/fi";
 import CartIcon from "./CartIcon";
+import ThemeToggle from "./ThemeToggle";
+
 
 const LogoutConfirmationModal = ({ onConfirm, onCancel }) => {
   return (
@@ -353,6 +355,8 @@ const Navbar = () => {
                   </NavLink>
 
                   <CartIcon />
+                  <ThemeToggle />
+
 
                   {/* Profile avatar */}
                   <button

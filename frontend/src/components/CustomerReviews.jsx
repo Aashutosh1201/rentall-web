@@ -24,12 +24,12 @@ const reviews = [
 
 const CustomerReviews = () => {
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-gray-50">
+    <section className="py-20 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 transition-colors">
       <div className="max-w-6xl mx-auto px-4 text-center">
-        <h2 className="text-4xl font-extrabold text-gray-800 mb-6">
+        <h2 className="text-4xl font-extrabold text-gray-800 dark:text-white mb-6">
           What Our Users Say
         </h2>
-        <p className="text-gray-600 mb-12 max-w-2xl mx-auto">
+        <p className="text-gray-600 dark:text-gray-300 mb-12 max-w-2xl mx-auto">
           Hear directly from the renters and lenders who trust RentALL.
         </p>
 
@@ -37,7 +37,7 @@ const CustomerReviews = () => {
           {reviews.map((review, index) => (
             <div
               key={index}
-              className="bg-white rounded-2xl p-6 shadow-lg border hover:shadow-xl transition-all duration-300"
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-left rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300"
             >
               <div className="flex items-center mb-3 text-yellow-400">
                 {Array(review.rating)
@@ -51,8 +51,12 @@ const CustomerReviews = () => {
                     />
                   ))}
               </div>
-              <p className="text-gray-700 italic mb-4">“{review.comment}”</p>
-              <p className="text-gray-900 font-semibold">{review.name}</p>
+              <p className="text-gray-700 dark:text-gray-300 italic mb-4">
+                “{review.comment}”
+              </p>
+              <p className="text-gray-900 dark:text-white font-semibold">
+                {review.name}
+              </p>
             </div>
           ))}
         </div>

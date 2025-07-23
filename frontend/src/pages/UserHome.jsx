@@ -26,16 +26,24 @@ const UserHome = () => {
   }, []);
 
   if (!user) {
-    return <div className="text-center text-gray-600">Loading profile...</div>;
+    return (
+      <div className="text-center text-gray-600 dark:text-gray-300">
+        Loading profile...
+      </div>
+    );
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">Welcome, {user.fullName}!</h1>
-      <p className="text-gray-600">Email: {user.email}</p>
-      <p className="text-gray-600">Phone: {user.phone}</p>
-      <hr className="my-4" />
-      <p className="text-gray-700">🚀 Product management features coming soon...</p>
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+      <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+        Welcome, {user.fullName}!
+      </h1>
+      <p className="text-gray-600 dark:text-gray-300">Email: {user.email}</p>
+      <p className="text-gray-600 dark:text-gray-300">Phone: {user.phone}</p>
+      <hr className="my-4 border-gray-300 dark:border-gray-600" />
+      <p className="text-gray-700 dark:text-gray-200">
+        🚀 Product management features coming soon...
+      </p>
     </div>
   );
 };

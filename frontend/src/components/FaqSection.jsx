@@ -61,14 +61,15 @@ const FaqSection = () => {
               <button
                 onClick={() => toggle(index)}
                 className="w-full flex justify-between items-center px-6 py-4 focus:outline-none text-left"
+                aria-expanded={isOpen}
               >
                 <span className="font-medium text-gray-800 dark:text-gray-100">
                   {faq.question}
                 </span>
                 {isOpen ? (
-                  <ChevronUp className="text-gray-500" />
+                  <ChevronUp className="text-gray-500 dark:text-gray-400" />
                 ) : (
-                  <ChevronDown className="text-gray-500" />
+                  <ChevronDown className="text-gray-500 dark:text-gray-400" />
                 )}
               </button>
               {isOpen && (
